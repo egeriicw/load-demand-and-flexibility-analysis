@@ -190,6 +190,42 @@ excluded_meters = []
 # be non-NaN at a given timestamp (pandas groupby sum(min_count=...) semantics).
 min_count = 1
 
+[der.calendar]
+# ISO date strings; overrides weekday/weekend -> "holiday" for day_type.
+holidays = []
+# Uncomment to override the default meteorological Northern-Hemisphere month->season map.
+# [der.calendar.season_map]
+# 12 = "winter"
+# 1  = "winter"
+# ...
+
+[der.time_of_day]
+# Fixed hour windows [start, end) used for {segment}_peak_kw features.
+[der.time_of_day.segments]
+morning   = [6, 10]
+midday    = [10, 14]
+afternoon = [14, 18]
+evening   = [18, 22]
+
+[der.temperature]
+# Path to a CSV of external temperature data, or leave unset to disable
+# temperature merge/banding entirely (der.pipeline.run_der_pipeline skips it).
+# source = "data/examples/weather.csv"
+# External temperature only fills *missing* temperature_f by default; true = external
+# wins wherever a match is found within join_tolerance_minutes.
+override_existing = false
+# Nearest-match window in minutes; unset (omit) = unlimited.
+# join_tolerance_minutes = 60
+
+[der.temperature.column_mapping]
+timestamp = "datetime"
+temperature_f = "temperature_f"
+
+[der.temperature.bands]
+# pd.cut boundaries -> bins (-inf,32],(32,50],...,(90,inf) labeled
+# "below-32","32-50",...,"90-above".
+boundaries = [32, 50, 65, 80, 90]
+
 [output]
 # Paths for CSV exports (relative to notebook directory, or absolute)
 daily_features_csv     = "output/daily_features.csv"
