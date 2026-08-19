@@ -17,7 +17,9 @@ import pandas as pd
 from ..data_ingestion import load_demand_data
 from ..pipeline import run_pipeline
 from .aggregation import build_entity_frame
+from .calendar_features import add_calendar_features, add_time_of_day_segments
 from .meters import MeterSpec, build_meter_specs, resolve_meter_groups, resolve_portfolio
+from .temperature import band_temperature, load_temperature_data, merge_temperature
 
 PORTFOLIO_ENTITY_ID = "Portfolio"
 
@@ -35,6 +37,16 @@ class DERResult:
 
     interval_df_multi: pd.DataFrame = field(default_factory=pd.DataFrame)
     """All meters' interval_df concatenated, tagged with meter_id."""
+
+    entity_calendar_frames: dict[str, pd.DataFrame] = field(default_factory=dict)
+    """entity_id -> entity_frames[entity_id] + calendar columns (§2.4)."""
+
+    entity_tod_frames: dict[str, pd.DataFrame] = field(default_factory=dict)
+    """entity_id -> one row per date with time-of-day segment features (§5.1)."""
+
+    entity_temperature_frames: dict[str, pd.DataFrame] = field(default_factory=dict)
+    """entity_id -> calendar frame + merged/banded temperature_f. Only populated
+    when ``der.temperature.source`` is configured."""
 
 
 def _tag_meter_id(interval_df: pd.DataFrame, meter_id: str) -> pd.DataFrame:
@@ -83,9 +95,30 @@ def run_der_pipeline(cfg: dict[str, Any], verbose: bool = True) -> DERResult:
         for entity_id, meter_ids in entity_meter_ids.items()
     }
 
+    # ── Calendar / time-of-day / temperature enrichment (Phase 2) ─────────
+    entity_calendar_frames: dict[str, pd.DataFrame] = {}
+    entity_tod_frames: dict[str, pd.DataFrame] = {}
+    entity_temperature_frames: dict[str, pd.DataFrame] = {}
+
+    temp_source = cfg.get("der", {}).get("temperature", {}).get("source")
+    temp_df = load_temperature_data(temp_source, cfg) if temp_source is not None else None
+
+    for entity_id, frame in entity_frames.items():
+        if frame.empty:
+            continue
+        cal_frame = add_calendar_features(frame, cfg)
+        entity_calendar_frames[entity_id] = cal_frame
+        entity_tod_frames[entity_id] = add_time_of_day_segments(frame, cfg)
+        if temp_df is not None:
+            merged = merge_temperature(cal_frame, temp_df, cfg)
+            entity_temperature_frames[entity_id] = band_temperature(merged, cfg)
+
     return DERResult(
         meter_tables=meter_tables,
         entity_frames=entity_frames,
         entity_meter_ids=entity_meter_ids,
         interval_df_multi=interval_df_multi,
+        entity_calendar_frames=entity_calendar_frames,
+        entity_tod_frames=entity_tod_frames,
+        entity_temperature_frames=entity_temperature_frames,
     )
