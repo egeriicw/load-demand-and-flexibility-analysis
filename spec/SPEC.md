@@ -1698,3 +1698,52 @@ configured).
 check (`if temp_source:`) raised on a DataFrame source (`ValueError: The truth value of
 a DataFrame is ambiguous`) — any config value that may be a path *or* a DataFrame must
 be checked with `is not None`, never plain truthiness. Fixed; see ADR 009.
+
+## 55. Change-Point Regression, Demand Classification, DER Peak Events, Load-Shape Classification (Phase 3)
+
+**STATUS: DECIDED**
+
+**Change-point / balance-point regression** (`der/change_point.py`, DER spec §5.2 —
+statistical/modeled relationship, not a causal claim): `fit_2p` (OLS), `fit_3p_cooling`/
+`fit_3p_heating` (1°F-step grid search + OLS per candidate), `fit_4p`/`fit_5p` (grid
+search + `scipy.optimize.lsq_linear`, slopes bounded ≥0). `select_best_change_point_model`
+fits all five and picks by adjusted R² (`1-(1-R²)(n-1)/(n-p-1)`), excluding candidates
+that fail their own minimum-point guard or where `n-p-1<=0`; ties go to the simpler
+(lower-parameter-count) model; returns `None` if every candidate is excluded — callers
+must treat that as "no model could be fit," not "temperature-independent." Functions
+operate on plain `x`/`y` arrays; weekday-only filtering, daily-mean aggregation, etc.
+are the caller's responsibility. See ADR 010 (including a noted `O(candidates²)` cost
+for 5P's joint grid search).
+
+**Demand classification families** (`der/demand_classification.classify_demand_families`,
+§5.3): threshold (`meets_threshold_<kw>`), percentile (`top_pct_<pp>`), rank
+(`top_rank_<n>`) — independent boolean columns, `[der.demand_classification]`
+TOML-configured, never collapsed into one generic flag.
+
+**Local peak/valley** (`der/local_extrema.add_local_extrema_flags`, §5.4): strict
+3-point comparator (`d[i]>d[i-1] and d[i]>d[i+1]`, mirrored for valleys) on raw
+`demand_kw`; boundary rows and any NaN-adjacent row default to `False`. Deliberately
+separate from `events.py`'s prominence-based detection on the smoothed series.
+
+**DER peak events** (`der/peak_events.detect_der_peak_events`, §5.5): contiguous
+grouping of any boolean "meets criterion" series via `[der.peak_events].allowable_gap_intervals`
+(gap-bridged, extends through intervening non-qualifying intervals),
+`event_id = f"{entity_id}_{definition}_{seq:04d}"`, `duration_class` sustained/short via
+`.sustained_threshold_hours`. `DERPeakEvent` — explicitly separate from `events.PeakEvent`
+(different definition, different mechanism; see ADR 011). Composes with any of the
+three classification families above (or any other boolean column) without coupling.
+
+**Load-shape classification** (`der/load_shape.classify_load_shape`, §5.6): merges
+per-day stats with Phase 2's `add_time_of_day_segments` output and Phase 3's local
+extrema flags into independent boolean flags (`is_flat`, `is_highly_peaked`,
+`has_{segment}_peak`, `is_overnight_heavy`, `is_multi_peak`, `has_sharp_peak`,
+`has_sustained_high_load`, `has_peak_valley_pattern`, `is_unusual`) plus a
+priority-ordered **`der_primary_shape`** (distinctly named vs. `classify_day`'s
+`primary_class`; see ADR 012). `[der.load_shape]` TOML-configured thresholds.
+
+**Caught during implementation** (see ADR 012): `bool(float("nan"))` is `True` in
+Python, so a naive truthiness check on a boolean flag left `NaN` by the day-keyed
+`tod_df` left-join would silently satisfy every priority-order rule. Fixed via an
+explicit `_is_true(x)` helper (`x is True or x == True`) used throughout
+`_primary_shape`, with a regression test constructing exactly that missing-day
+scenario.

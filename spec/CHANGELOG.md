@@ -12,6 +12,45 @@ Format:
 
 ---
 
+## 2026-08-19 — DER Opportunity Analysis integration, Phase 3: change-point regression, demand classification families, DER peak events, load-shape classification
+
+- New section: Change-Point Regression, Demand Classification, DER Peak Events,
+  Load-Shape Classification (SPEC.md Part II).
+- `src/load_profile/der/change_point.py` (new): `fit_2p`, `fit_3p_cooling`,
+  `fit_3p_heating`, `fit_4p`, `fit_5p` (full ASHRAE GL14/IPMVP family, grid search +
+  OLS/bounded-LSQ via `scipy.optimize.lsq_linear`), `select_best_change_point_model`
+  (adjusted-R², simpler-model tie-break, `None` if every candidate excluded).
+  `ChangePointModel` dataclass.
+- `src/load_profile/der/demand_classification.py` (new): `classify_demand_families()`
+  — threshold/percentile/rank boolean families, kept independent (never collapsed).
+- `src/load_profile/der/local_extrema.py` (new): `add_local_extrema_flags()` — 3-point
+  comparator `is_local_peak`/`is_local_valley`, NaN-neighbor/boundary safe.
+- `src/load_profile/der/peak_events.py` (new): `detect_der_peak_events()` — contiguous
+  gap-bridged grouping (`allowable_gap_intervals`), `event_id` format
+  `{entity}_{definition}_{seq:04d}`, sustained-vs-short. `DERPeakEvent` dataclass,
+  explicitly separate from `events.PeakEvent` (see ADR 011).
+- `src/load_profile/der/load_shape.py` (new): `classify_load_shape()` — independent
+  shape boolean flags + priority-ordered `der_primary_shape` (distinctly named vs.
+  `classify_day`'s `primary_class`, see ADR 012).
+- `config/analysis_config.toml`: new `[der.peak_events]`, `[der.demand_classification]`,
+  `[der.load_shape]`.
+- Bug caught by `tests/der/test_load_shape.py::test_nan_row_from_tod_merge_does_not_satisfy_every_rule`
+  and fixed before merge: `bool(float("nan"))` is `True` in Python, so a naive
+  truthiness check on a boolean flag left `NaN` by a day-keyed left join would silently
+  satisfy every rule. Fixed via an explicit `_is_true()` helper (`x is True or x ==
+  True`) used throughout `_primary_shape`. See ADR 012.
+- Tests: `tests/der/test_change_point.py` (known-breakpoint recovery for all five
+  models, model-selection ties), `tests/der/test_demand_classification.py`,
+  `tests/der/test_der_peak_events.py` (gap-bridging, event_id format, sustained
+  threshold), `tests/der/test_local_extrema.py` (NaN-neighbor edge cases),
+  `tests/der/test_load_shape.py` (incl. the NaN-truthiness regression test above).
+- ADR created: adr/010-change-point-model-family.md
+- ADR created: adr/011-der-peak-event-definition.md
+- ADR created: adr/012-load-shape-classification.md
+- Phase 4 of the DER integration (K-means clustering, pattern discovery) follows next.
+
+---
+
 ## 2026-08-19 — DER Opportunity Analysis integration, Phase 2: calendar features, time-of-day segments, external temperature
 
 - New section: Calendar & Time-of-Day Features, External Temperature (SPEC.md Part II).
