@@ -24,9 +24,18 @@ def _make_index(
     tz: str = "America/Chicago",
     resolution_minutes: float = 15.0,
 ) -> pd.DatetimeIndex:
-    start = pd.Timestamp(date, tz=tz)
-    end   = start + pd.Timedelta(hours=24) - pd.Timedelta(minutes=resolution_minutes)
-    return pd.date_range(start, end, freq=f"{resolution_minutes}min", tz=tz)
+    # Build from naive local midnight-to-midnight so pandas' tz-aware
+    # date_range does the DST accounting itself (23-hour spring-forward /
+    # 25-hour fall-back days get the correct interval count). The previous
+    # `start + Timedelta(hours=24)` approach did absolute-time arithmetic
+    # on an already-tz-aware Timestamp, which silently produced a plain
+    # 96-interval day regardless of DST.
+    start = pd.Timestamp(date)
+    end   = start + pd.Timedelta(days=1)
+    return pd.date_range(
+        start, end, freq=f"{resolution_minutes}min", tz=tz,
+        inclusive="left", ambiguous="infer", nonexistent="shift_forward",
+    )
 
 
 def _frame(index: pd.DatetimeIndex, demand: np.ndarray) -> pd.DataFrame:

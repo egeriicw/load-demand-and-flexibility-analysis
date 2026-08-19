@@ -545,6 +545,13 @@ def _group_ramp_events(
                     series.index[series.index.get_loc(idxs[j]) - 1]
                 ).total_seconds() / 3600 if series.index.get_loc(idxs[j]) > 0 else 0
                 j += 1
+            elif step == 0:
+                # A true flat interval (no movement) ends the event rather
+                # than being absorbed as a "reversal" -- reversal_mag would
+                # be 0, which is always < any positive tolerance threshold,
+                # so without this branch a plateau of any length gets
+                # silently swallowed into the ramp regardless of duration.
+                break
             else:
                 # Reversal tolerance
                 reversal_mag = abs(step)
@@ -646,18 +653,35 @@ def _find_downward_transitions(
 
     for ts, state in states.items():
         if prev_state == STATE_OPERATING and state == STATE_BASELINE:
+            # Find where the downward ramp actually began: the last local
+            # high before the decline (mirrors the backward lookback used
+            # by upward transitions to find the pre-rise low). Without this,
+            # an abrupt single-interval drop uses the already-dropped value
+            # at `ts` as its own origin, producing a spurious delta of ~0.
+            lookback_start = ts - pd.Timedelta(hours=2)
+            lookback = series[lookback_start:ts].dropna()
+            if not lookback.empty:
+                origin_time = lookback.idxmax()
+                origin_kw   = float(lookback.max())
+            else:
+                origin_time = ts
+                origin_kw   = float(series.at[ts]) if ts in series.index else np.nan
+
             # Find where ramp ends (look forward for local minimum)
             lookahead_end = ts + pd.Timedelta(hours=2)
             lookahead = series[ts:lookahead_end].dropna()
             transition_end    = lookahead.idxmin() if not lookahead.empty else ts
             transition_end_kw = float(lookahead.min()) if not lookahead.empty else np.nan
 
-            dur_hr   = (transition_end - ts).total_seconds() / 3600
-            start_kw = float(series.at[ts]) if ts in series.index else np.nan
-            delta    = start_kw - transition_end_kw if not np.isnan(transition_end_kw) else 0.0
+            dur_hr   = (transition_end - origin_time).total_seconds() / 3600
+            delta    = (
+                origin_kw - transition_end_kw
+                if not np.isnan(transition_end_kw) and not np.isnan(origin_kw)
+                else 0.0
+            )
             avg_rate = delta / dur_hr if dur_hr > 0 else 0.0
 
-            window   = series[ts:transition_end].dropna()
+            window   = series[origin_time:transition_end].dropna()
             diffs    = window.diff().dropna()
             times_h  = window.index.to_series().diff().dropna().dt.total_seconds() / 3600
             max_rate = float((diffs.abs() / times_h.clip(lower=1e-9)).max()) if not diffs.empty else avg_rate

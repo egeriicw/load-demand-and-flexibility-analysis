@@ -66,6 +66,11 @@ def run_pipeline(
               f"Duplicates: {validation['duplicate_timestamp_count']} | "
               f"Irregular: {validation['irregular_interval_count']}")
 
+    # validate_input() reports duplicate timestamps but doesn't drop them;
+    # regularize()'s reindex requires a unique index, so drop here.
+    if validation["duplicate_timestamp_count"]:
+        df = df[~df.index.duplicated(keep="first")]
+
     # ── 1b. Unit conversion (kWh → kW if configured) ──────────────────────
     df, unit_meta = convert_units(df, res_min, cfg)
     if verbose and unit_meta["conversion_applied"]:
