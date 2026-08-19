@@ -5,6 +5,19 @@ from .meters import MeterSpec, build_meter_specs, resolve_meter_groups, resolve_
 from .aggregation import aggregate_entity, build_entity_frame
 from .calendar_features import add_calendar_features, add_time_of_day_segments
 from .temperature import band_temperature, load_temperature_data, merge_temperature
+from .change_point import (
+    ChangePointModel,
+    fit_2p,
+    fit_3p_cooling,
+    fit_3p_heating,
+    fit_4p,
+    fit_5p,
+    select_best_change_point_model,
+)
+from .demand_classification import classify_demand_families
+from .local_extrema import add_local_extrema_flags
+from .peak_events import DERPeakEvent, detect_der_peak_events
+from .load_shape import classify_load_shape
 from .pipeline import DERResult, run_der_pipeline
 
 __all__ = [
@@ -19,6 +32,18 @@ __all__ = [
     "load_temperature_data",
     "merge_temperature",
     "band_temperature",
+    "ChangePointModel",
+    "fit_2p",
+    "fit_3p_cooling",
+    "fit_3p_heating",
+    "fit_4p",
+    "fit_5p",
+    "select_best_change_point_model",
+    "classify_demand_families",
+    "add_local_extrema_flags",
+    "DERPeakEvent",
+    "detect_der_peak_events",
+    "classify_load_shape",
     "DERResult",
     "run_der_pipeline",
 ]

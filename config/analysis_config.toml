@@ -226,6 +226,32 @@ temperature_f = "temperature_f"
 # "below-32","32-50",...,"90-above".
 boundaries = [32, 50, 65, 80, 90]
 
+[der.peak_events]
+# Contiguous-grouping gap tolerance: a run of qualifying intervals separated by
+# more than this many non-qualifying intervals starts a new event; runs within
+# this gap are merged into one event (spanning the intervening intervals too).
+allowable_gap_intervals = 0
+# duration_class = "sustained" if duration_hours >= this, else "short".
+sustained_threshold_hours = 1.0
+
+[der.demand_classification]
+# Independent boolean families — never collapsed into one "is_peak" flag.
+thresholds_kw = []
+top_percentiles = []
+top_n_hours = []
+
+[der.load_shape]
+flat_cv_max = 0.15
+highly_peaked_ratio_min = 2.0
+sharp_peak_width_frac_max = 0.10
+sustained_high_frac_min = 0.30
+sustained_high_pct_of_peak = 0.90
+overnight_heavy_ratio_min = 1.1
+multi_peak_min_count = 2
+# A segment "contains" the day's peak if its own max is within this fraction
+# of the day's overall max.
+near_peak_segment_fraction = 0.85
+
 [output]
 # Paths for CSV exports (relative to notebook directory, or absolute)
 daily_features_csv     = "output/daily_features.csv"
