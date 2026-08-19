@@ -33,6 +33,7 @@ from .patterns import (
     find_recurring_shape,
 )
 from .coincidence import CoincidenceResult, compute_coincidence_factor, compute_daily_coincidence
+from .output import DEROutputBundle, build_der_output, export_der_output
 from .pipeline import DERResult, run_der_pipeline
 
 __all__ = [
@@ -72,6 +73,9 @@ __all__ = [
     "CoincidenceResult",
     "compute_coincidence_factor",
     "compute_daily_coincidence",
+    "DEROutputBundle",
+    "build_der_output",
+    "export_der_output",
     "DERResult",
     "run_der_pipeline",
 ]

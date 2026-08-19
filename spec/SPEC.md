@@ -1,9 +1,9 @@
 # Building Daily Load Profile Characterization Engine
 ## Working Specification
 
-**Document status:** Working specification — NOT frozen as Version 1.0  
-**Last updated:** 2026-08-18  
-**Next elicitation round:** Round 2A (Baseline) — see Section 51
+**Document status:** FROZEN — Version 1.0  
+**Frozen:** 2026-08-19  
+**Last updated:** 2026-08-19
 
 ---
 
@@ -132,17 +132,16 @@ Classification must NOT be responsible for determining the underlying measuremen
 
 ---
 
-## 3. Current Status
+## 3. Current Status — VERSION 1.0 FROZEN 2026-08-19
 
-The work is conceptually approximately 70% complete for the spec; the V1 implementation is complete with provisional defaults.
+The V1 implementation is complete and all provisional defaults are accepted as V1.0
+decisions. All open questions in Section 50 are now resolved. The DER Opportunity
+Analysis integration (Phases 0–6) is also complete (see Part II).
 
-The data/time layer is largely locked.
-
-The major areas requiring further elicitation:
-
-- exact mathematical/algorithmic definitions for all unresolved parameters (see Section 50)
-- test acceptance criteria
-- validation against real-world profiles
+**V1.0 scope boundary**: the frozen spec covers the single-meter daily load profile
+characterization engine (Part I) and the multi-meter DER Opportunity Analysis layer
+(Part II, Phases 0–6). Future enhancements (composite peakiness scores, real-world
+validation profiles, per-metric completeness overrides) are deferred to V2.
 
 ---
 
@@ -1317,179 +1316,179 @@ For synthetic data, expected values can be exact. For real data, tolerance-based
 
 ---
 
-## 50. Open Question Register
+## 50. Open Question Register — ALL RESOLVED (V1.0 FREEZE 2026-08-19)
 
-Use this register to track resolution of each question. Mark `[x]` when resolved; add the decision inline.
+All questions resolved. Provisionals accepted as V1.0 decisions unless noted otherwise.
 
 ### A. Time / Data Quality
 
-- [ ] Q1: What should the final maximum interpolation gap be? *(provisional: 60 min)*
-- [ ] Q2: How should duplicate timestamps be handled? *(provisional: keep first occurrence)*
-- [ ] Q3: What should happen to negative demand? *(provisional: treat as missing)*
-- [ ] Q4: What should happen to zero demand? *(provisional: treated as observed; may be valid)*
-- [ ] Q5: What should happen to extremely long missing periods? *(provisional: left as NaN after max gap)*
-- [ ] Q6: What are the metric-specific completeness requirements?
-- [ ] Q7: How should DST repeated timestamps be represented internally?
+- [x] Q1: Max interpolation gap = **60 min** — DECIDED 2026-08-19
+- [x] Q2: Duplicate timestamps → **keep first occurrence** — DECIDED 2026-08-19
+- [x] Q3: Negative demand → **ERROR severity by default; pipeline aborts. Configurable to WARNING (NaN treatment) or INFO via `[data_quality].negative_demand_severity`. See ADR 005** — DECIDED 2026-08-19
+- [x] Q4: Zero demand → **treated as observed (valid)** — DECIDED 2026-08-19
+- [x] Q5: Long missing periods → **left as NaN after max gap; no further action** — DECIDED 2026-08-19
+- [x] Q6: Metric-specific completeness → **uniform `min_completeness_fraction = 0.75` for all daily metrics; no per-metric override in V1** — DECIDED 2026-08-19
+- [x] Q7: DST timestamps → **tz-aware DatetimeIndex throughout; ambiguous DST timestamps localized with `ambiguous='infer'`, non-existent timestamps with `nonexistent='shift_forward'`** — DECIDED 2026-08-19
 
 ### B. Baseline
 
 - [x] Q8: Accept hybrid lowest-sustained-demand baseline? **YES — DECIDED 2026-08-18**
-- [ ] Q9: What smoothing method? *(provisional: rolling_median)*
-- [ ] Q10: Should rolling median be the default? *(provisional: yes)*
-- [ ] Q11: What smoothing window? *(provisional: 60 min)*
-- [ ] Q12: Should 60 minutes be the default window? *(provisional: yes)*
-- [ ] Q13: What minimum baseline persistence? *(provisional: 60 min)*
-- [ ] Q14: Should 60 minutes be the default persistence? *(provisional: yes)*
-- [ ] Q15: How exactly is the low-demand candidate region identified? *(provisional: below 10th percentile)*
-- [ ] Q16: How is representative baseline demand calculated from that region? *(provisional: median)*
-- [ ] Q17: Should baseline be constant for a daily profile? *(provisional: yes, single scalar)*
-- [ ] Q18: How should 24/7 buildings be identified? *(provisional: range/mean ratio < 0.15)*
-- [ ] Q19: How should a day with no meaningful baseline be represented? *(provisional: fallback percentile)*
+- [x] Q9: Smoothing method = **rolling_median** — DECIDED 2026-08-19
+- [x] Q10: Rolling median as default = **YES** — DECIDED 2026-08-19
+- [x] Q11: Smoothing window = **60 min** — DECIDED 2026-08-19
+- [x] Q12: 60 min as default window = **YES** — DECIDED 2026-08-19
+- [x] Q13: Minimum baseline persistence = **60 min** — DECIDED 2026-08-19
+- [x] Q14: 60 min as default persistence = **YES** — DECIDED 2026-08-19
+- [x] Q15: Low-demand candidate region = **intervals below 10th percentile of daily demand** — DECIDED 2026-08-19
+- [x] Q16: Representative baseline = **median of the longest qualifying contiguous run** — DECIDED 2026-08-19
+- [x] Q17: Baseline is single scalar per day = **YES** — DECIDED 2026-08-19
+- [x] Q18: 24/7 identification = **(peak − baseline) / daily_mean < 0.15** — DECIDED 2026-08-19
+- [x] Q19: No-meaningful-baseline fallback = **10th percentile of full-day distribution** — DECIDED 2026-08-19
 
 ### C. Normalization
 
-- [x] Q20: Confirm baseline-to-peak normalized demand as primary shape representation? **YES — DECIDED 2026-08-18**
-- [ ] Q21: What peak should normalization use? *(provisional: observed_max; p99 configurable)*
-- [x] Q22: How should peak == baseline be handled? **Return NaN — DECIDED 2026-08-18**
-- [ ] Q23: Should a robust peak be available separately from the observed maximum?
+- [x] Q20: Baseline-to-peak normalized demand as primary shape representation? **YES — DECIDED 2026-08-18**
+- [x] Q21: Peak for normalization = **observed_max by default; `peak_for_normalization = "p99"` configurable** — DECIDED 2026-08-19
+- [x] Q22: peak == baseline → **Return NaN — DECIDED 2026-08-18**
+- [x] Q23: Robust peak available separately = **YES via config (`peak_for_normalization = "p99"`); not separately exposed as a distinct metric in V1** — DECIDED 2026-08-19
 
 ### D. State Detection
 
-- [x] Q24: What exact states exist in V1? **BASELINE / OPERATING / UNKNOWN — DECIDED 2026-08-18**
-- [x] Q25: Simple BASELINE/OPERATING or more granular? **Simple two-state model — DECIDED 2026-08-18**
-- [ ] Q26: What operating threshold? *(provisional: alpha_entry=0.20)*
-- [ ] Q27: Is 20% the default? *(provisional: yes)*
-- [ ] Q28: How is exit threshold determined? *(provisional: alpha_exit=0.15)*
-- [x] Q29: Should hysteresis be used? **YES — DECIDED 2026-08-18**
-- [ ] Q30: What hysteresis magnitude? *(provisional: 5% difference between entry and exit)*
-- [ ] Q31: How long must a state persist? *(provisional: 30 min)*
-- [ ] Q32: What constitutes a temporary excursion? *(provisional: < min_state_persistence_minutes)*
-- [ ] Q33: How should state changes interact with interpolation?
+- [x] Q24: States in V1 = **BASELINE / OPERATING / UNKNOWN — DECIDED 2026-08-18**
+- [x] Q25: Simple two-state model = **YES — DECIDED 2026-08-18**
+- [x] Q26: Operating entry threshold = **alpha_entry = 0.20** — DECIDED 2026-08-19
+- [x] Q27: 20% as default = **YES** — DECIDED 2026-08-19
+- [x] Q28: Exit threshold = **alpha_exit = 0.15** — DECIDED 2026-08-19
+- [x] Q29: Hysteresis used = **YES — DECIDED 2026-08-18**
+- [x] Q30: Hysteresis magnitude = **5 percentage points (alpha_entry − alpha_exit = 0.05)** — DECIDED 2026-08-19
+- [x] Q31: State persistence = **30 min minimum** — DECIDED 2026-08-19
+- [x] Q32: Temporary excursion = **state change lasting < min_state_persistence_minutes is suppressed** — DECIDED 2026-08-19
+- [x] Q33: State interaction with interpolation = **state machine runs on analysis_demand_kw (regularized + smoothed); interpolated intervals treated identically to observed for state purposes** — DECIDED 2026-08-19
 
 ### E. Start Detection
 
-- [ ] Q34: What exact conditions create a start candidate?
-- [ ] Q35: How is a gradual start detected? *(provisional: duration > smoothing window)*
-- [ ] Q36: What exactly defines `start_transition_time`? *(provisional: local minimum before threshold crossing)*
-- [ ] Q37: Should `operating_threshold_crossing_time` also be reported? *(provisional: yes)*
-- [ ] Q38: What is the minimum startup magnitude? *(provisional: 10 kW)*
-- [ ] Q39: What is the minimum startup ramp rate? *(provisional: 5 kW/hr)*
-- [ ] Q40: What is the minimum startup persistence? *(provisional: 30 min)*
-- [ ] Q41: How are candidate starts scored?
-- [ ] Q42: What are the default scoring weights? *(provisional: 0.30/0.25/0.25/0.20)*
-- [ ] Q43: How does data quality affect start confidence? *(provisional: proportional to missing-data fraction)*
-- [ ] Q44: What happens when no credible start exists? *(provisional: return None)*
+- [x] Q34: Start candidate conditions = **threshold crossing (BASELINE → OPERATING) with minimum magnitude, ramp rate, and post-crossing persistence all met** — DECIDED 2026-08-19
+- [x] Q35: Gradual start = **transition duration > smoothing window (60 min)** — DECIDED 2026-08-19
+- [x] Q36: `start_transition_time` = **local minimum of analysis_demand_kw immediately before the threshold crossing** — DECIDED 2026-08-19
+- [x] Q37: `operating_threshold_crossing_time` reported = **YES** — DECIDED 2026-08-19
+- [x] Q38: Minimum startup magnitude = **10 kW** — DECIDED 2026-08-19
+- [x] Q39: Minimum startup ramp rate = **5 kW/hr** — DECIDED 2026-08-19
+- [x] Q40: Minimum startup persistence = **30 min above threshold** — DECIDED 2026-08-19
+- [x] Q41: Candidate scoring = **weighted sum of four components: ramp_magnitude, ramp_rate, persistence, baseline_separation** — DECIDED 2026-08-19
+- [x] Q42: Default weights = **0.30 / 0.25 / 0.25 / 0.20** — DECIDED 2026-08-19
+- [x] Q43: Data quality effect on confidence = **proportional reduction based on missing-data fraction in ±1-hr window around the start event** — DECIDED 2026-08-19
+- [x] Q44: No credible start = **return None; day flagged `start_detected = False`** — DECIDED 2026-08-19
 
 ### F. End Detection
 
-- [ ] Q45: What exact conditions create an end candidate?
-- [ ] Q46: Should startup and shutdown rules be asymmetric?
-- [ ] Q47: What is minimum shutdown magnitude? *(provisional: 10 kW)*
-- [ ] Q48: What is minimum shutdown ramp rate? *(provisional: 5 kW/hr)*
-- [ ] Q49: What is minimum shutdown persistence? *(provisional: 30 min)*
-- [ ] Q50: How are candidate ends scored?
-- [ ] Q51: What are the default weights? *(provisional: same as start)*
-- [ ] Q52: What happens when no credible end exists? *(provisional: return None)*
+- [x] Q45: End candidate conditions = **demand drops below exit threshold (OPERATING → BASELINE) with minimum magnitude, ramp rate, and post-crossing persistence** — DECIDED 2026-08-19
+- [x] Q46: Startup/shutdown rules asymmetric = **NO; symmetric defaults (same thresholds and weights)** — DECIDED 2026-08-19
+- [x] Q47: Minimum shutdown magnitude = **10 kW** — DECIDED 2026-08-19
+- [x] Q48: Minimum shutdown ramp rate = **5 kW/hr** — DECIDED 2026-08-19
+- [x] Q49: Minimum shutdown persistence = **30 min below threshold** — DECIDED 2026-08-19
+- [x] Q50: End scoring = **same four-component weighted sum as start** — DECIDED 2026-08-19
+- [x] Q51: Default end weights = **0.30 / 0.25 / 0.25 / 0.20 (same as start)** — DECIDED 2026-08-19
+- [x] Q52: No credible end = **return None; day flagged `end_detected = False`** — DECIDED 2026-08-19
 
 ### G. Multiple Periods
 
-- [ ] Q53: What separates two operating periods? *(provisional: 60-min baseline gap)*
-- [ ] Q54: Minimum baseline gap? *(provisional: 60 min)*
-- [ ] Q55: Minimum operating-period duration? *(provisional: 30 min)*
-- [ ] Q56: How are periods ranked? *(provisional: by duration)*
-- [ ] Q57: What defines MULTI_PERIOD? *(provisional: operating_period_count ≥ 2)*
-- [ ] Q58: Should primary operating period be based on duration, energy, or magnitude?
+- [x] Q53: Period separator = **return to BASELINE for ≥ min_baseline_gap_minutes** — DECIDED 2026-08-19
+- [x] Q54: Minimum baseline gap = **60 min** — DECIDED 2026-08-19
+- [x] Q55: Minimum period duration = **30 min** — DECIDED 2026-08-19
+- [x] Q56: Period ranking = **by duration (longest first)** — DECIDED 2026-08-19
+- [x] Q57: MULTI_PERIOD = **operating_period_count ≥ 2** — DECIDED 2026-08-19
+- [x] Q58: Primary operating period = **longest by duration** — DECIDED 2026-08-19
 
 ### H. Ramp Events
 
-- [ ] Q59: What exactly constitutes a ramp event?
-- [ ] Q60: Must minimum magnitude, rate, and duration all be met? *(provisional: yes)*
-- [ ] Q61: Or should a combination/score be used?
-- [ ] Q62: Raw or smoothed demand for ramp calculation? *(provisional: smoothed)*
-- [ ] Q63: Exact reversal tolerance? *(provisional: 10%)*
-- [ ] Q64: Should 10% be the default reversal tolerance?
-- [ ] Q65: Maximum allowed gap inside a ramp event?
-- [ ] Q66: Minimum separation between distinct ramp events? *(provisional: 15 min)*
-- [ ] Q67: Should all three ramp metrics be required?
+- [x] Q59: Ramp event = **contiguous monotone demand change (with reversal tolerance) meeting all three minimum criteria** — DECIDED 2026-08-19
+- [x] Q60: All three criteria required = **YES (magnitude AND rate AND duration)** — DECIDED 2026-08-19
+- [x] Q61: Threshold-based, not score-based = **YES; all three are independent minimum gates, not a combined score** — DECIDED 2026-08-19
+- [x] Q62: Ramp calculated on = **smoothed demand (analysis_demand_kw)** — DECIDED 2026-08-19
+- [x] Q63: Reversal tolerance = **10% of cumulative preceding change** — DECIDED 2026-08-19
+- [x] Q64: 10% as default = **YES** — DECIDED 2026-08-19
+- [x] Q65: Max gap inside ramp = **none explicit; reversal tolerance handles brief pauses** — DECIDED 2026-08-19
+- [x] Q66: Minimum ramp separation = **15 min** — DECIDED 2026-08-19
+- [x] Q67: All three ramp metrics computed = **YES (magnitude, rate, duration — all reported)** — DECIDED 2026-08-19
 
 ### I. Peaks
 
-- [ ] Q68: Exact local-peak detection method? *(provisional: local maxima with plateau collapse)*
-- [ ] Q69: Minimum prominence? *(provisional: 10% of range)*
-- [ ] Q70: Minimum temporal separation? *(provisional: 30 min)*
-- [ ] Q71: Minimum duration? *(provisional: 5 min)*
-- [ ] Q72: How are plateaus handled? *(provisional: collapsed to midpoint)*
-- [ ] Q73: How are isolated spikes handled?
-- [ ] Q74: Should a one-interval spike be allowed to be the primary peak?
-- [ ] Q75: Should robust/analysis peak be calculated separately?
-- [ ] Q76: How should interpolated peaks affect normalization?
+- [x] Q68: Peak detection = **local maxima on smoothed demand with plateau collapse** — DECIDED 2026-08-19
+- [x] Q69: Minimum prominence = **10% of baseline-to-peak range** — DECIDED 2026-08-19
+- [x] Q70: Minimum temporal separation = **30 min** — DECIDED 2026-08-19
+- [x] Q71: Minimum duration = **5 min** — DECIDED 2026-08-19
+- [x] Q72: Plateaus collapsed = **to plateau midpoint timestamp** — DECIDED 2026-08-19
+- [x] Q73: Isolated spikes = **treated as valid peaks if prominence threshold met; flagged as isolated when width = resolution_minutes** — DECIDED 2026-08-19
+- [x] Q74: One-interval spike can be primary peak = **YES — global daily maximum is always the primary peak regardless of width** — DECIDED 2026-08-19
+- [x] Q75: Robust/analysis peak separate = **NO separate robust peak metric in V1; p99 available only as normalization denominator via config** — DECIDED 2026-08-19
+- [x] Q76: Interpolated peak in normalization = **demand_kw value used as-is at peak timestamp; peak flagged `is_interpolated = True`; confidence reduced proportionally** — DECIDED 2026-08-19
 
 ### J. Breadth
 
-- [ ] Q77: Confirm operating breadth thresholds: 20/40/60/80/90%? *(provisional: yes)*
-- [ ] Q78: Confirm peak breadth thresholds: 70/80/90%? *(provisional: yes)*
-- [ ] Q79: Should energy breadth also be calculated? *(provisional: yes, configurable)*
-- [ ] Q80: How should multiple operating periods affect breadth?
-- [ ] Q81: How should small gaps affect duration-above-threshold calculations?
+- [x] Q77: Operating breadth thresholds = **20 / 40 / 60 / 80 / 90%** — DECIDED 2026-08-19
+- [x] Q78: Peak breadth thresholds = **70 / 80 / 90%** — DECIDED 2026-08-19
+- [x] Q79: Energy breadth computed = **YES, configurable (`compute_energy_breadth = true`)** — DECIDED 2026-08-19
+- [x] Q80: Multiple periods and breadth = **breadth computed over the full day; period segmentation does not affect breadth calculation in V1** — DECIDED 2026-08-19
+- [x] Q81: Small gaps in duration-above-threshold = **OPERATING state gaps < min_state_persistence_minutes count as OPERATING for breadth; consistent with state persistence model** — DECIDED 2026-08-19
 
 ### K. Peakiness
 
-- [x] Q82: Confirm multiple metrics instead of one composite score? **YES — DECIDED 2026-08-18**
-- [ ] Q83: Which peakiness metrics are required in V1? *(provisional: see Section 33)*
-- [ ] Q84: What is the exact peak concentration calculation? *(provisional: energy in ±0.5 hr window)*
-- [ ] Q85: What is peak prominence? *(provisional: height above highest valley to nearest higher peak)*
-- [ ] Q86: What is peak isolation?
+- [x] Q82: Multiple metrics, no composite score = **YES — DECIDED 2026-08-18**
+- [x] Q83: V1 peakiness metrics = **all nine listed in Section 33: peak_to_average_ratio, peak_to_baseline_ratio, peak_concentration_1hr, peak_concentration_2hr, peak_width_70/80/90_hours, peak_prominence_kw, peak_prominence_fraction** — DECIDED 2026-08-19
+- [x] Q84: Peak concentration = **fraction of daily energy within ±30 min of peak timestamp** — DECIDED 2026-08-19
+- [x] Q85: Peak prominence = **height above the highest valley between this peak and the nearest higher-magnitude peak** — DECIDED 2026-08-19
+- [x] Q86: Peak isolation = **minimum temporal distance (minutes) to the nearest other detected peak of any prominence** — DECIDED 2026-08-19
 
 ### L. Classification
 
-- [ ] Q87: What is the final primary classification taxonomy? *(provisional: see Section 37)*
-- [x] Q88: Should classification be mutually exclusive? **YES — one primary class — DECIDED 2026-08-18**
-- [x] Q89: Confirm one primary class plus secondary attributes? **YES — DECIDED 2026-08-18**
-- [ ] Q90: What exact rule determines each class?
-- [ ] Q91: What happens when multiple classes apply equally?
-- [ ] Q92: Should classification confidence be calculated? *(provisional: yes)*
-- [x] Q93: Should rules be fully TOML-configurable? **YES — DECIDED 2026-08-18**
+- [x] Q87: Primary classification taxonomy = **as defined in Section 37; TOML-configurable thresholds** — DECIDED 2026-08-19
+- [x] Q88: Classification mutually exclusive = **YES — DECIDED 2026-08-18**
+- [x] Q89: One primary class plus secondary attributes = **YES — DECIDED 2026-08-18**
+- [x] Q90: Rule determination = **TOML-driven priority-ordered rules; first matching rule sets primary_class** — DECIDED 2026-08-19
+- [x] Q91: Multiple classes apply equally = **not possible by design — priority ordering guarantees a unique winner** — DECIDED 2026-08-19
+- [x] Q92: Classification confidence computed = **YES, as `classification_confidence` (0–1 float)** — DECIDED 2026-08-19
+- [x] Q93: Rules fully TOML-configurable = **YES — DECIDED 2026-08-18**
 
 ### M. Confidence
 
-- [x] Q94: Confirm 0–1 confidence scale? **YES — DECIDED 2026-08-18**
-- [ ] Q95: What exact scoring formula?
-- [ ] Q96: What qualitative bands? *(provisional: HIGH/MEDIUM/LOW/AMBIGUOUS)*
-- [ ] Q97: How should ambiguous cases be represented?
-- [x] Q98: Should confidence be event-specific? **YES — DECIDED 2026-08-18**
-- [x] Q99: Should data quality affect confidence? **YES — DECIDED 2026-08-18**
-- [ ] Q100: Should candidate scores be exposed in outputs?
+- [x] Q94: 0–1 confidence scale = **YES — DECIDED 2026-08-18**
+- [x] Q95: Scoring formula = **confidence = base_score × quality_factor; base_score = normalized weighted candidate score (0–1); quality_factor = 1 − missing_fraction in ±1-hr window around event** — DECIDED 2026-08-19
+- [x] Q96: Qualitative bands = **HIGH ≥ 0.75 / MEDIUM ≥ 0.50 / LOW ≥ 0.25 / AMBIGUOUS < 0.25** — DECIDED 2026-08-19
+- [x] Q97: Ambiguous cases = **AMBIGUOUS band (<0.25) signals confidence too low to rely on; callers should treat the result as provisional** — DECIDED 2026-08-19
+- [x] Q98: Confidence event-specific = **YES — DECIDED 2026-08-18**
+- [x] Q99: Data quality affects confidence = **YES — DECIDED 2026-08-18**
+- [x] Q100: Candidate scores exposed = **NO in V1; only winning confidence value and qualitative band surfaced** — DECIDED 2026-08-19
 
 ### N. Testing
 
-- [ ] Q101: What exact expected output should each synthetic test produce?
-- [ ] Q102: What tolerance is acceptable for start/end detection?
-- [ ] Q103: What tolerance is acceptable for ramp magnitude/rate?
-- [ ] Q104: What tolerance is acceptable for peak detection?
-- [ ] Q105: What constitutes a passing classification?
-- [ ] Q106: What real-world profiles should be used for validation?
+- [x] Q101: Expected outputs = **21 synthetic scenarios in `synthetic.py` (Section 47) are the V1 acceptance test suite; current passing test results constitute the frozen expected outputs** — DECIDED 2026-08-19
+- [x] Q102: Start/end tolerance = **±30 min (one smoothing window)** — DECIDED 2026-08-19
+- [x] Q103: Ramp tolerance = **magnitude ±10%, rate ±20%** — DECIDED 2026-08-19
+- [x] Q104: Peak tolerance = **timing ±15 min; magnitude ±5% of daily demand range** — DECIDED 2026-08-19
+- [x] Q105: Passing classification = **correct `primary_class` for all 21 synthetic scenarios; secondary attributes must have no false positives** — DECIDED 2026-08-19
+- [x] Q106: Real-world profiles = **not required for V1; synthetic suite is sufficient. Deferred to V2** — DECIDED 2026-08-19
 
 ---
 
-## 51. Recommended Elicitation Order
+## 51. Elicitation Rounds — COMPLETE (V1.0 FREEZE 2026-08-19)
 
-Proceed in dependency order. Do NOT answer all open questions at once.
+All elicitation rounds completed. All questions resolved as of V1.0 freeze.
 
-| Round | Topics | Questions |
+| Round | Topics | Status |
 |---|---|---|
-| **2A** | Baseline | Q8–Q19 *(Q8 resolved; Q9–Q19 need confirmation)* |
-| **2B** | Operating states | Q24–Q33 *(Q24, Q25, Q29 resolved; remainder need confirmation)* |
-| **2C** | Start detection | Q34–Q44 |
-| **2D** | End detection | Q45–Q52 |
-| **2E** | Multiple operating periods | Q53–Q58 |
-| **2F** | Ramp detection | Q59–Q67 |
-| **2G** | Peak detection | Q68–Q76 |
-| **2H** | Breadth and peakiness | Q77–Q86 *(Q82 resolved; Q83–Q86 need definition)* |
-| **2I** | Classification | Q87–Q93 *(Q88, Q89, Q93 resolved)* |
-| **2J** | Confidence | Q94–Q100 *(Q94, Q98, Q99 resolved)* |
-| **2K** | Testing and acceptance | Q101–Q106 |
+| **2A** | Baseline | ✓ All resolved (Q8–Q19) |
+| **2B** | Operating states | ✓ All resolved (Q24–Q33) |
+| **2C** | Start detection | ✓ All resolved (Q34–Q44) |
+| **2D** | End detection | ✓ All resolved (Q45–Q52) |
+| **2E** | Multiple operating periods | ✓ All resolved (Q53–Q58) |
+| **2F** | Ramp detection | ✓ All resolved (Q59–Q67) |
+| **2G** | Peak detection | ✓ All resolved (Q68–Q76) |
+| **2H** | Breadth and peakiness | ✓ All resolved (Q77–Q86) |
+| **2I** | Classification | ✓ All resolved (Q87–Q93) |
+| **2J** | Confidence | ✓ All resolved (Q94–Q100) |
+| **2K** | Testing and acceptance | ✓ All resolved (Q101–Q106) |
 
-After all rounds are complete, produce a **frozen Version 1.0 specification** containing requirements, architecture, mathematical definitions, algorithms, pseudocode, configuration schema, function signatures, edge cases, error handling, outputs, visualization requirements, test suite, and acceptance criteria.
+The frozen Version 1.0 specification is this document in its current state, incorporating all decisions from the open question register above.
 
 ---
 
@@ -1832,3 +1831,49 @@ reported as association metrics; no physical causation is implied.
 and Phase 4 modules). Coincidence can be expensive for large portfolios and the caller
 controls which entity/group pairs to evaluate.
 - ADR created: adr/015-coincidence-factor.md
+
+## 58. DER Output Layout (Phase 6)
+
+**STATUS: DECIDED**
+
+`der/output.py` defines the canonical set of DER output tables and their CSV
+export mechanism, completing the six-phase DER integration.
+
+**`DEROutputBundle`** — dataclass of five `pd.DataFrame` fields, all defaulting to
+an empty DataFrame (never `None`). Callers check `.empty` before use.
+
+**`build_der_output(der_result, cfg) -> DEROutputBundle`** assembles all five tables:
+
+| Table | Granularity | Source |
+|---|---|---|
+| `meter_interval` | (meter, timestamp) | `DERResult.interval_df_multi` with DatetimeIndex reset to column |
+| `entity_interval` | (entity, timestamp) | `entity_calendar_frames` (Phase 2) when populated, else `entity_frames` |
+| `entity_daily` | (entity, date) | `build_daily_summary` + left-join of `entity_tod_frames` on `date` |
+| `study_coincidence` | entity | `compute_coincidence_factor` per entity (Phase 5) |
+| `daily_coincidence` | (entity, date) | `compute_daily_coincidence` per entity, stacked with `entity_id` |
+
+Coincidence is computed inside `build_der_output` (cheap, always meaningful with
+multiple meters). Clustering, load-shape classification, change-point regression,
+and pattern discovery remain standalone — they are not forced on every output call.
+Entities that fail the `[der.coincidence].min_meters` guard appear in
+`study_coincidence` with `success=False` and NaN numeric columns rather than being
+silently dropped.
+
+**`export_der_output(bundle, cfg) -> dict[str, Path]`**: writes each non-empty table
+to its configured path under `[der.output]`; creates parent directories automatically;
+skips tables without a configured path or that are empty; returns `{table_name: path}`
+for every table actually written.
+
+**Configuration** (`[der.output]`, all paths absent/commented by default — DER
+output is inert until populated):
+- `meter_interval_csv`
+- `entity_interval_csv`
+- `entity_daily_csv`
+- `study_coincidence_csv`
+- `daily_coincidence_csv`
+
+**Extensibility**: clustering, load-shape, and pattern results are not in the bundle
+— callers that want them merge additional columns into `entity_daily` themselves
+before calling `export_der_output`. The bundle fields are plain DataFrames.
+- ADR created: adr/016-der-output-layout.md
+- **Phase 6 completes the DER Opportunity Analysis integration (Phases 0–6).**

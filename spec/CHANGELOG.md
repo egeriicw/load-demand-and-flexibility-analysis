@@ -12,6 +12,66 @@ Format:
 
 ---
 
+## 2026-08-19 — Version 1.0 specification freeze
+
+- **SPEC.md frozen as Version 1.0** — all 106 open questions resolved.
+- Document status header updated: "FROZEN — Version 1.0 / 2026-08-19."
+- Section 3 (Current Status) updated to reflect V1.0 scope boundary.
+- Section 50 (Open Question Register): all remaining `[ ]` items marked `[x]` with
+  explicit V1.0 decisions. Summary of key decisions locked here:
+  - Q1–Q7: interpolation gap 60 min; keep-first duplicates; negative demand = ERROR
+    (ADR 005); zero demand = observed; uniform completeness fraction 0.75; tz-aware DST handling.
+  - Q9–Q19: rolling median, 60-min window; hybrid sustained baseline; 10th-percentile
+    low-demand region; median of longest run; single scalar baseline; 0.15 range/mean
+    24/7 threshold; 10th-pct fallback.
+  - Q21/Q23: observed_max normalization; p99 configurable via `peak_for_normalization`.
+  - Q26–Q33: alpha_entry=0.20, alpha_exit=0.15, 30-min persistence; state machine on
+    smoothed demand; interpolated intervals treated as observed for state purposes.
+  - Q34–Q52: symmetric start/end detection; 10 kW / 5 kW/hr / 30-min gates;
+    weights 0.30/0.25/0.25/0.20; None on no credible event.
+  - Q53–Q58: 60-min gap separates periods; 30-min min duration; ranked by duration.
+  - Q59–Q67: all three ramp criteria required; 10% reversal; 15-min separation.
+  - Q68–Q76: local maxima + plateau collapse; 10% prominence; 30-min separation;
+    isolated spikes valid; no separate robust peak metric in V1.
+  - Q77–Q81: breadth thresholds confirmed; energy breadth on; full-day breadth only.
+  - Q83–Q86: all nine peakiness metrics from Section 33; ±30-min concentration window;
+    height-above-valley prominence; minimum-distance isolation.
+  - Q87–Q92: taxonomy from Section 37; priority-ordered TOML rules; classification_confidence computed.
+  - Q95–Q97/Q100: confidence = base_score × quality_factor; HIGH≥0.75/MEDIUM≥0.50/LOW≥0.25/AMBIGUOUS<0.25; candidate scores not exposed in V1.
+  - Q101–Q106: 21 synthetic scenarios as acceptance suite; ±30-min start/end tolerance;
+    ±10%/±20% ramp; ±15-min/±5% peak; no real-world profiles required in V1.
+- Section 51 (Elicitation Rounds): updated to ✓ COMPLETE table.
+- V1.0 scope boundary: Part I (single-meter engine) + Part II (DER Phases 0–6).
+  V2 scope: composite peakiness scores, real-world validation, per-metric completeness.
+
+---
+
+## 2026-08-19 — DER Opportunity Analysis integration, Phase 6: DER output layout
+
+- New section: DER Output Layout (SPEC.md §58) — completes the six-phase DER integration.
+- `src/load_profile/der/output.py` (new): `DEROutputBundle` (five DataFrame fields,
+  all default-empty), `build_der_output(der_result, cfg)` — assembles meter_interval,
+  entity_interval, entity_daily, study_coincidence, daily_coincidence; computes
+  coincidence here (cheap, Phase 5), leaves clustering/load-shape/patterns standalone.
+  `export_der_output(bundle, cfg)` — writes non-empty tables to configured CSV paths,
+  creates parent directories, returns `{table_name: path}` dict.
+- `entity_interval` source priority: Phase 2 `entity_calendar_frames` when populated,
+  else `entity_frames` (graceful degradation when Phase 2 was not run).
+- `entity_daily` joins `build_daily_summary` with `entity_tod_frames` on `date`
+  (both use tz-aware Timestamps from `DatetimeIndex.normalize()`).
+- Entities failing `[der.coincidence].min_meters` guard appear in `study_coincidence`
+  with `success=False` and NaN numeric fields — not silently dropped.
+- `config/analysis_config.toml`: new `[der.output]` section (all five path keys
+  commented; output stays inert until paths are filled in).
+- Tests: `tests/der/test_output.py` (31 tests — bundle defaults, meter_interval
+  row count/columns, entity_interval calendar fallback, entity_daily TOD join,
+  study_coincidence success/failure, daily_coincidence per-day rows/entity_id,
+  export CSV creation/readability/empty-skip/parent-mkdir/unconfigured-skip).
+- ADR created: adr/016-der-output-layout.md
+- **Phase 6 completes the DER Opportunity Analysis integration (Phases 0–6).**
+
+---
+
 ## 2026-08-19 — DER Opportunity Analysis integration, Phase 5: meter coincidence analysis
 
 - New section: Meter Coincidence Analysis (SPEC.md §57).

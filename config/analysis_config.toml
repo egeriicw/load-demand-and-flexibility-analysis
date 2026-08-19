@@ -272,6 +272,16 @@ min_days_for_outliers = 5
 # explicitly want that degenerate case.
 min_meters = 2
 
+[der.output]
+# CSV export paths for the five canonical DER output tables (relative to
+# notebook directory, or absolute). Leave a key absent or empty to skip that
+# table. Parent directories are created automatically.
+# meter_interval_csv    = "output/der_meter_interval.csv"
+# entity_interval_csv   = "output/der_entity_interval.csv"
+# entity_daily_csv      = "output/der_entity_daily.csv"
+# study_coincidence_csv = "output/der_study_coincidence.csv"
+# daily_coincidence_csv = "output/der_daily_coincidence.csv"
+
 [output]
 # Paths for CSV exports (relative to notebook directory, or absolute)
 daily_features_csv     = "output/daily_features.csv"
