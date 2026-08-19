@@ -1,0 +1,170 @@
+# Building Daily Load Profile Characterization Engine
+# Configuration File
+
+[input]
+# Column names in source data (override to match your CSV/DataFrame)
+datetime_col = "datetime"
+demand_col   = "demand_kw"
+meter_id_col = ""       # leave empty if not present
+building_id_col = ""    # leave empty if not present
+
+# Units of the demand column in the source data.
+#   "kW"  — instantaneous demand (kilowatts). No conversion needed.
+#   "kWh" — energy per interval (kilowatt-hours). Converted to average kW using:
+#            kW = kWh * (60 / resolution_minutes)
+#            e.g. 15-min data: multiply by 4; 30-min: multiply by 2; hourly: multiply by 1
+unit = "kW"
+
+[timezone]
+# Timezone used when timestamps are naive (IANA name, e.g. "America/Chicago")
+default_tz = "America/Chicago"
+
+[data_quality]
+# Maximum contiguous gap (minutes) that will be filled by linear interpolation.
+# Gaps longer than this remain NaN.
+max_interpolation_gap_minutes = 60
+
+# Minimum fraction of expected intervals that must be OBSERVED (not interpolated)
+# for a daily metric to be considered valid.
+min_completeness_fraction = 0.75
+
+[smoothing]
+# Method: "none" | "rolling_median" | "rolling_mean"
+method = "rolling_median"
+# Window in minutes (centred, actual elapsed time)
+window_minutes = 60
+
+[baseline]
+# Method: "hybrid_sustained"
+# Finds the longest contiguous low-demand region and takes the median of it.
+method = "hybrid_sustained"
+
+# Minimum duration (minutes) a low-demand region must persist to be a baseline candidate.
+min_persistence_minutes = 60
+
+# The low-demand candidate region is defined as observations below this percentile
+# of the daily demand distribution.
+low_demand_percentile = 10
+
+# If no region persists long enough (e.g. 24/7 operation), fall back to this percentile
+# of the full-day distribution as the baseline.
+continuous_operation_fallback_percentile = 10
+
+# If the operating range (peak - baseline) is less than this fraction of the daily mean,
+# the day is classified as CONTINUOUS_OPERATION.
+continuous_operation_range_fraction = 0.15
+
+[normalization]
+# Demand normalization: D_norm = (D - baseline) / (peak - baseline)
+# Which peak to use for normalization: "observed_max" | "p99" (robust)
+peak_for_normalization = "observed_max"
+
+[operating_threshold]
+# Entry: demand must rise above  baseline + alpha_entry * (peak - baseline)
+alpha_entry = 0.20
+# Exit: demand must fall below   baseline + alpha_exit  * (peak - baseline)
+# (alpha_exit < alpha_entry gives hysteresis)
+alpha_exit = 0.15
+
+# Minimum duration (minutes) demand must stay above entry threshold
+# before the state is called OPERATING.
+min_state_persistence_minutes = 30
+
+[start_detection]
+# Minimum kW rise from baseline to qualify as a startup candidate.
+min_magnitude_kw = 10.0
+# Minimum ramp rate (kW/hour) over the startup transition.
+min_ramp_rate_kw_per_hr = 5.0
+# Minimum minutes above operating threshold after crossing it.
+min_persistence_minutes = 30
+# Scoring weights (must sum to 1.0)
+weight_ramp_magnitude = 0.30
+weight_ramp_rate      = 0.25
+weight_persistence    = 0.25
+weight_baseline_sep   = 0.20
+
+[end_detection]
+min_magnitude_kw        = 10.0
+min_ramp_rate_kw_per_hr = 5.0
+min_persistence_minutes = 30
+weight_ramp_magnitude   = 0.30
+weight_ramp_rate        = 0.25
+weight_persistence      = 0.25
+weight_baseline_sep     = 0.20
+
+[multiple_periods]
+# Minimum baseline gap (minutes) that separates two distinct operating periods.
+min_baseline_gap_minutes = 60
+# Minimum operating-period duration (minutes) to be counted as a real period.
+min_period_duration_minutes = 30
+
+[ramp_detection]
+# Minimum absolute demand change for a ramp event (kW).
+min_magnitude_kw = 10.0
+# Minimum ramp rate (kW/hour).
+min_rate_kw_per_hr = 5.0
+# Minimum ramp duration (minutes).
+min_duration_minutes = 10
+# A reversal within a ramp event is allowed if it is < this fraction of
+# the cumulative preceding change.
+reversal_tolerance_fraction = 0.10
+# Minimum temporal separation (minutes) between distinct ramp events.
+min_separation_minutes = 15
+
+[peak_detection]
+# Minimum prominence for a local peak (as fraction of baseline-to-peak range).
+min_prominence_fraction = 0.10
+# Minimum temporal separation (minutes) between distinct peaks.
+min_separation_minutes = 30
+# Minimum duration (minutes) around a peak before it is recognised as an episode.
+min_duration_minutes = 5
+# Plateau tolerance: if adjacent intervals are within this fraction of each other,
+# treat them as part of the same plateau.
+plateau_tolerance_fraction = 0.01
+
+[breadth]
+# Operating-breadth thresholds (normalised demand 0-1)
+operating_thresholds = [0.20, 0.40, 0.60, 0.80, 0.90]
+# Peak-breadth thresholds (normalised demand 0-1)
+peak_thresholds = [0.70, 0.80, 0.90]
+# Also compute fraction of daily energy above each operating threshold
+compute_energy_breadth = true
+
+[classification]
+# TOML-driven rule thresholds for the primary shape classification.
+# Start timing boundaries (hour of day, 24-hr)
+early_start_before_hour  = 6
+morning_start_before_hour = 10
+midday_start_before_hour  = 14
+evening_start_at_or_after_hour = 14
+
+# Rapid vs gradual startup
+rapid_start_ramp_kw_per_hr = 50.0
+# Long vs short operating duration
+long_operation_hours = 10.0
+short_operation_hours = 4.0
+# Broad vs sharp peak
+broad_peak_width_80_hours = 3.0
+sharp_peak_width_80_hours = 1.0
+# High intraday variability
+high_variability_cv_threshold = 0.30
+# Multiple periods
+multi_period_min_count = 2
+
+[output]
+# Paths for CSV exports (relative to notebook directory, or absolute)
+daily_features_csv     = "output/daily_features.csv"
+ramp_events_csv        = "output/ramp_events.csv"
+peak_events_csv        = "output/peak_events.csv"
+interval_analysis_csv  = "output/interval_analysis.csv"
+
+[visualization]
+figsize_w = 14
+figsize_h = 8
+dpi = 120
+# Colour for observed vs interpolated demand
+color_observed     = "#2c7bb6"
+color_interpolated = "#d7191c"
+color_baseline     = "#1a9641"
+color_threshold    = "#fdae61"
+color_peak         = "#d62728"
