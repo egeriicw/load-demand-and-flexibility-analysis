@@ -12,6 +12,43 @@ Format:
 
 ---
 
+## 2026-08-19 — DER Opportunity Analysis integration, Phase 4: K-means clustering, pattern discovery
+
+- New section: Clustering & Pattern Discovery (SPEC.md Part II).
+- `pyproject.toml`: added `scikit-learn>=1.7.0` (new dependency; not previously used
+  by this project).
+- `src/load_profile/der/clustering.py` (new): `peak_normalized_series()` (DER's own
+  §2.7 peak-fraction definition — deliberately not `states.compute_normalized_demand`,
+  which is a different, baseline-subtracted quantity — see ADR 013),
+  `build_daily_profile_matrix()`, `select_k()` (silhouette-driven auto-k, `<4` days
+  forces k=1), `cluster_daily_profiles()` (`KMeans(random_state=42, n_init=10)`,
+  cluster_size/percentage_of_days/representative_peak/within_cluster_variability per
+  cluster, `<2` days = `success=False`), `cluster_entity_daily_profiles()` (computes
+  absolute AND normalized clustering together). `ClusteringResult` dataclass.
+- `src/load_profile/der/patterns.py` (new): `build_daily_summary()`,
+  `find_recurring_peak_timing()`, `find_recurring_shape()` (excludes
+  `insufficient_data`, same support-fraction denominator as peak timing),
+  `find_outlier_days()` (z-score of daily energy and max demand computed separately,
+  `>=5` complete days required). Deliberately no import dependency on `load_shape.py`
+  — see ADR 014.
+- `src/load_profile/der/_daily.py` (new): `infer_resolution_minutes`,
+  `expected_intervals_per_day`, `complete_day_dates` — factored out of `load_shape.py`
+  (Phase 3) once `clustering.py`/`patterns.py` needed the same day-completeness logic a
+  third/fourth time; `load_shape.py` now imports from here instead of its own copy.
+- `config/analysis_config.toml`: new `[der.clustering]`, `[der.patterns]`.
+- **Neither clustering nor pattern discovery is wired into `run_der_pipeline`** —
+  consistent with Phase 3's choice to keep these standalone/directly-callable rather
+  than forcing every DER run to compute (non-cheap) K-means clustering for every
+  entity unconditionally. See ADR 014.
+- Tests: `tests/der/test_clustering.py` (reproducibility across runs, cluster-size-sums-
+  to-n-days invariant, `<2`/`<4`-day edge cases, both absolute+normalized computed),
+  `tests/der/test_patterns.py`.
+- ADR created: adr/013-clustering-methodology.md
+- ADR created: adr/014-pattern-discovery.md
+- Phase 5 of the DER integration (meter coincidence analysis) follows next.
+
+---
+
 ## 2026-08-19 — DER Opportunity Analysis integration, Phase 3: change-point regression, demand classification families, DER peak events, load-shape classification
 
 - New section: Change-Point Regression, Demand Classification, DER Peak Events,

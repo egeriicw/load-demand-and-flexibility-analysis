@@ -252,6 +252,20 @@ multi_peak_min_count = 2
 # of the day's overall max.
 near_peak_segment_fraction = 0.85
 
+[der.clustering]
+# K-means clustering of daily profiles (complete days only). random_state fixed
+# for reproducibility. Fewer than 4 complete days forces k=1.
+max_k = 8
+random_state = 42
+
+[der.patterns]
+# Recurring peak-timing bucket width (minutes) and minimum day-count to report.
+peak_timing_window_minutes = 30
+min_occurrences = 3
+# Outlier-day z-score threshold and minimum complete-day count required.
+outlier_z_threshold = 2.5
+min_days_for_outliers = 5
+
 [output]
 # Paths for CSV exports (relative to notebook directory, or absolute)
 daily_features_csv     = "output/daily_features.csv"

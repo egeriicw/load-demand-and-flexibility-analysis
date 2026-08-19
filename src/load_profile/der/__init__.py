@@ -18,6 +18,20 @@ from .demand_classification import classify_demand_families
 from .local_extrema import add_local_extrema_flags
 from .peak_events import DERPeakEvent, detect_der_peak_events
 from .load_shape import classify_load_shape
+from .clustering import (
+    ClusteringResult,
+    build_daily_profile_matrix,
+    cluster_daily_profiles,
+    cluster_entity_daily_profiles,
+    peak_normalized_series,
+    select_k,
+)
+from .patterns import (
+    build_daily_summary,
+    find_outlier_days,
+    find_recurring_peak_timing,
+    find_recurring_shape,
+)
 from .pipeline import DERResult, run_der_pipeline
 
 __all__ = [
@@ -44,6 +58,16 @@ __all__ = [
     "DERPeakEvent",
     "detect_der_peak_events",
     "classify_load_shape",
+    "ClusteringResult",
+    "build_daily_profile_matrix",
+    "cluster_daily_profiles",
+    "cluster_entity_daily_profiles",
+    "peak_normalized_series",
+    "select_k",
+    "build_daily_summary",
+    "find_outlier_days",
+    "find_recurring_peak_timing",
+    "find_recurring_shape",
     "DERResult",
     "run_der_pipeline",
 ]

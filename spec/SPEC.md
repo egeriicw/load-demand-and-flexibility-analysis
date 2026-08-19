@@ -1747,3 +1747,43 @@ Python, so a naive truthiness check on a boolean flag left `NaN` by the day-keye
 explicit `_is_true(x)` helper (`x is True or x == True`) used throughout
 `_primary_shape`, with a regression test constructing exactly that missing-day
 scenario.
+
+## 56. K-Means Clustering & Pattern Discovery (Phase 4)
+
+**STATUS: DECIDED**
+
+New dependency: `scikit-learn>=1.7.0` (`pyproject.toml`), first used here.
+
+**Clustering** (`der/clustering.py`, DER spec §5.7/§19-20 — statistical, not causal):
+`peak_normalized_series` computes DER's own §2.7 `normalized_demand`
+(`demand_kw / daily_peak_demand_kw`) fresh — **not** `states.compute_normalized_demand`
+(a different, baseline-subtracted quantity; same naming-collision discipline as ADR
+007). `build_daily_profile_matrix` pivots complete days only into a
+`(day × interval_index)` matrix. `select_k` (silhouette-driven auto-k, `max_k=8`,
+`<4` complete days forces `k=1`, an unscoreable k is skipped) and
+`cluster_daily_profiles` (`KMeans(random_state=42, n_init=10)`, `<2` days fails,
+per-cluster `cluster_size`/`percentage_of_days`/`representative_peak`/
+`within_cluster_variability`). `cluster_entity_daily_profiles` computes **both**
+absolute and normalized clustering, never just one, per spec.
+
+**Pattern discovery** (`der/patterns.py`, DER spec §5.8/§21 — heuristic/statistical,
+never causal): `build_daily_summary` (per-day `is_complete_day`, `daily_energy_kwh`,
+`maximum_demand_kw`, `peak_time_minutes`). `find_recurring_peak_timing` (bucketed by
+`[der.patterns].peak_timing_window_minutes`, `min_occurrences` threshold,
+`statistical_support` = fraction of complete days). `find_recurring_shape` (grouped by
+a caller-supplied `der_primary_shape` column, excluding `insufficient_data`, same
+support-fraction denominator as peak timing). `find_outlier_days` (z-score of
+`daily_energy_kwh` and `maximum_demand_kw` computed **separately**, `>=5` complete days
+required, `z_threshold` default 2.5).
+
+**Shared day-completeness helper** (`der/_daily.py`): `infer_resolution_minutes`,
+`expected_intervals_per_day`, `complete_day_dates` — factored out once `load_shape.py`
+(Phase 3), `clustering.py`, and `patterns.py` all needed the identical "is this day
+complete" logic; `load_shape.py` was refactored to import from here.
+
+**Not wired into `run_der_pipeline`**: clustering and pattern discovery stay
+standalone/directly-callable, same design choice as Phase 3's peak-events/
+classification modules — K-means in particular is not cheap enough to run
+unconditionally for every entity on every pipeline invocation. `patterns.py`
+deliberately has no import dependency on `load_shape.py`, composing with whatever
+shape-labeling source a caller supplies instead.

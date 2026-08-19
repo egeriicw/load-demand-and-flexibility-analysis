@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
+from ._daily import infer_resolution_minutes
 from .local_extrema import add_local_extrema_flags
 
 _DEFAULTS = {
@@ -25,13 +25,6 @@ _DEFAULTS = {
     "multi_peak_min_count": 2,
     "near_peak_segment_fraction": 0.85,
 }
-
-
-def _infer_resolution_minutes(index: pd.DatetimeIndex) -> float:
-    diffs = index.to_series().diff().dropna().dt.total_seconds() / 60
-    if diffs.empty:
-        return 60.0
-    return float(diffs.mode().iloc[0])
 
 
 def _is_true(value: Any) -> bool:
@@ -69,7 +62,7 @@ def classify_load_shape(
     if "is_local_peak" not in interval_df.columns or "is_local_valley" not in interval_df.columns:
         interval_df = add_local_extrema_flags(interval_df, value_col=value_col)
 
-    expected_per_day = (24 * 60) / _infer_resolution_minutes(interval_df.index)
+    expected_per_day = (24 * 60) / infer_resolution_minutes(interval_df.index)
 
     daily = pd.DataFrame(
         {
