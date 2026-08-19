@@ -12,6 +12,41 @@ Format:
 
 ---
 
+## 2026-08-19 — DER Opportunity Analysis integration, Phase 2: calendar features, time-of-day segments, external temperature
+
+- New section: Calendar & Time-of-Day Features, External Temperature (SPEC.md Part II).
+- `src/load_profile/der/calendar_features.py` (new): `add_calendar_features()` (date,
+  year, month, day, day_of_year, hour, minute, day_of_week, day_name, is_weekday,
+  is_weekend, season, day_type with holiday override), `add_time_of_day_segments()`
+  (per-day `{segment}_peak_kw` for morning/midday/afternoon/evening windows,
+  `overnight_mean_kw`/`nighttime_mean_kw`/`daytime_mean_kw`). Both are generic —
+  operate on any tz-aware-indexed DataFrame, not entity-frame-specific.
+- `src/load_profile/der/temperature.py` (new): `load_temperature_data()` (reuses
+  `data_ingestion._parse_timestamps`), `merge_temperature()` (`merge_asof` nearest join
+  on the index, `override_existing`/`join_tolerance_minutes` policy), `band_temperature()`
+  (`pd.cut` into configurable boundaries, default `[32,50,65,80,90]`).
+- `src/load_profile/der/pipeline.py`: `run_der_pipeline()` now applies calendar/TOD
+  enrichment to every non-empty entity frame, and merges+bands temperature once
+  (loaded once, not per entity) when `[der.temperature].source` is configured.
+  `DERResult` gained `entity_calendar_frames`, `entity_tod_frames`,
+  `entity_temperature_frames`.
+- `config/analysis_config.toml`: new `[der.calendar]` (`holidays`, optional
+  `season_map`), `[der.time_of_day.segments]` (window defaults matching spec),
+  `[der.temperature]` + `[der.temperature.column_mapping]` + `[der.temperature.bands]`.
+- Bug caught by the new pipeline-integration test and fixed before merge:
+  `run_der_pipeline`'s temperature-source check used plain `if temp_source:` truthiness,
+  which raised `ValueError: The truth value of a DataFrame is ambiguous` whenever a
+  DataFrame (rather than a path) was passed as the source — changed to `is not None`.
+  See ADR 009.
+- Tests: `tests/der/test_calendar_features.py`, `tests/der/test_time_of_day.py`,
+  `tests/der/test_temperature.py`, `tests/der/test_der_pipeline_enrichment.py`.
+- ADR created: adr/008-calendar-and-tod-features.md
+- ADR created: adr/009-temperature-integration.md
+- Phase 3 of the DER integration (change-point regression, demand classification
+  families, DER peak events, load-shape classification) follows next.
+
+---
+
 ## 2026-08-19 — DER Opportunity Analysis integration, Phase 1: multi-meter/portfolio model + entity aggregation
 
 - New section: Multi-Meter & Portfolio Model, Entity Aggregation (SPEC.md Part II).

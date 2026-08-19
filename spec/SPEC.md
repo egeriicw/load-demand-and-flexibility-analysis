@@ -1657,3 +1657,44 @@ the existing smoothed `analysis_demand_kw` column, despite the name match).
 with `meter_id`, concatenates, then builds an aggregated entity frame for every resolved
 group and the portfolio. `DERResult` holds per-meter tables, per-entity frames, the
 resolved entity→meter_ids mapping, and the tagged multi-meter interval table.
+
+## 54. Calendar Features, Time-of-Day Segments, External Temperature (Phase 2)
+
+**STATUS: DECIDED**
+
+`der/calendar_features.py` and `der/temperature.py` are both **generic**: they accept
+any DataFrame with a tz-aware `DatetimeIndex` (an entity's aggregated frame, or a
+meter's own `interval_df`) — they are not hard-wired to the entity model. `run_der_pipeline`
+applies them automatically to every non-empty entity frame; per-meter enrichment is a
+direct call the same functions on `meter_tables[meter_id]["interval_df"]`.
+
+**Calendar features** (`add_calendar_features`, DER spec §2.4): `date`, `year`, `month`,
+`day`, `day_of_year`, `hour`, `minute`, `day_of_week` (Monday=0), `day_name`,
+`is_weekday`/`is_weekend` (calendar-only, holiday-independent), `season` (config
+`[der.calendar].season_map`, default meteorological Northern Hemisphere), `day_type`
+(`"weekday"|"weekend"|"holiday"` — `[der.calendar].holidays` overrides).
+
+**Time-of-day segments** (`add_time_of_day_segments`, DER spec §5.1): one row per date,
+`{segment}_peak_kw` for each `[der.time_of_day.segments]` window (default
+morning[6,10)/midday[10,14)/afternoon[14,18)/evening[18,22)), `overnight_mean_kw` /
+`nighttime_mean_kw` (alias) over hours {22,23,0..5}, `daytime_mean_kw` over hours
+{6..21}. All aggregations skip NaN; vectorized via `Series.where(mask)` +
+`groupby(date).max()/.mean()`.
+
+**External temperature** (`load_temperature_data`/`merge_temperature`/`band_temperature`,
+DER spec §5.2 partial — ingestion/join/banding only; the change-point regression model
+family is Phase 3): loaded once per `run_der_pipeline()` call from
+`[der.temperature].source` (path or DataFrame; unset = temperature-dependent analysis
+degrades gracefully, no error), joined onto each entity's calendar frame via nearest-
+timestamp `merge_asof` (`[der.temperature].join_tolerance_minutes`,
+`.override_existing`), then banded via `pd.cut` (`[der.temperature.bands].boundaries`,
+default `[32,50,65,80,90]` → `"below-32"`..`"90-above"`, NaN temperature → NaN band).
+
+`DERResult` gained `entity_calendar_frames`, `entity_tod_frames`,
+`entity_temperature_frames` (the last populated only when a temperature source is
+configured).
+
+**Caught during implementation:** `run_der_pipeline`'s original temperature-source
+check (`if temp_source:`) raised on a DataFrame source (`ValueError: The truth value of
+a DataFrame is ambiguous`) — any config value that may be a path *or* a DataFrame must
+be checked with `is not None`, never plain truthiness. Fixed; see ADR 009.
