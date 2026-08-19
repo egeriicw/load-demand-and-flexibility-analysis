@@ -28,6 +28,12 @@ max_interpolation_gap_minutes = 60
 # for a daily metric to be considered valid.
 min_completeness_fraction = 0.75
 
+# Severity for negative demand values found during validate_input(): "INFO" | "WARNING" | "ERROR".
+# "ERROR" (default) aborts run_pipeline() before analysis begins — negative demand is
+# unsupported by design. Downgrade to "WARNING" to keep the legacy behavior of treating
+# negative readings as missing (NaN'd out, then gap-limited interpolation applies).
+negative_demand_severity = "ERROR"
+
 [smoothing]
 # Method: "none" | "rolling_median" | "rolling_mean"
 method = "rolling_median"
