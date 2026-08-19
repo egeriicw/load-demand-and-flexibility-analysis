@@ -6,8 +6,10 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from .config_schema import ConfigValidationError, validate_config
 
-def load_config(path: str | Path | None = None) -> dict[str, Any]:
+
+def load_config(path: str | Path | None = None, validate: bool = True) -> dict[str, Any]:
     """
     Load analysis configuration from a TOML file.
 
@@ -16,6 +18,10 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
     path : str or Path, optional
         Path to the TOML file. Defaults to ``config/analysis_config.toml``
         relative to the project root (two levels above this file).
+    validate : bool
+        If True (default), run structural validation (see
+        ``config_schema.validate_config``) and raise ``ConfigValidationError``
+        if any ``ERROR``-severity issue is found.
 
     Returns
     -------
@@ -30,6 +36,10 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
         raise FileNotFoundError(f"Configuration file not found: {path}")
     with open(path, "rb") as fh:
         cfg = tomllib.load(fh)
+    if validate:
+        report = validate_config(cfg)
+        if report.has_errors:
+            raise ConfigValidationError(report)
     return cfg
 
 

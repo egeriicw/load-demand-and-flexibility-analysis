@@ -18,7 +18,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .data_ingestion import validate_input, convert_units, _detect_resolution
+from .data_ingestion import (
+    validate_input, convert_units, check_validation_report, _detect_resolution,
+)
 from .time_series import regularize, assess_quality, segment_days, apply_smoothing
 from .baseline import estimate_baseline
 from .states import detect_states, compute_normalized_demand
@@ -60,6 +62,7 @@ def run_pipeline(
     """
     # ── 1. Validation ─────────────────────────────────────────────────────
     validation = validate_input(df, cfg)
+    check_validation_report(validation, cfg)
     res_min = validation["detected_resolution_minutes"]
     if verbose:
         print(f"[pipeline] Resolution detected: {res_min} min | "

@@ -189,10 +189,20 @@ def validate_input(df: pd.DataFrame, cfg: dict[str, Any]) -> dict[str, Any]:
     # Negative demand
     neg = (df["demand_kw"] < 0).sum()
     report["negative_demand_count"] = int(neg)
+    severity = cfg.get("data_quality", {}).get("negative_demand_severity", "ERROR")
+    report["negative_demand_severity"] = severity
     if neg:
-        report["warnings"].append(
-            f"{neg} negative demand value(s) — will be treated as missing during analysis"
-        )
+        if severity == "ERROR":
+            report["issues"].append(
+                f"{neg} negative demand value(s) — rejected (negative demand is "
+                f"unsupported by design; set data_quality.negative_demand_severity "
+                f"= \"WARNING\" to treat as missing instead)"
+            )
+        elif severity == "WARNING":
+            report["warnings"].append(
+                f"{neg} negative demand value(s) — will be treated as missing during analysis"
+            )
+        # "INFO": counted only, no message appended.
 
     # Zero demand
     zero = (df["demand_kw"] == 0).sum()
@@ -213,6 +223,25 @@ def validate_input(df: pd.DataFrame, cfg: dict[str, Any]) -> dict[str, Any]:
         )
 
     return report
+
+
+def check_validation_report(report: dict[str, Any], cfg: dict[str, Any]) -> None:
+    """
+    Raise ``ValueError`` if ``report`` (from ``validate_input``) contains a
+    condition the configured severity marks as fatal.
+
+    ``validate_input`` itself never raises — it only reports. This is the
+    caller-side gate (used by ``pipeline.run_pipeline``) that turns an
+    ``ERROR``-severity finding into an aborted run.
+    """
+    if report.get("negative_demand_severity") == "ERROR" and report.get(
+        "negative_demand_count", 0
+    ):
+        raise ValueError(
+            f"Rejecting input: {report['negative_demand_count']} negative demand "
+            f"value(s) found (data_quality.negative_demand_severity = \"ERROR\"). "
+            f"Set it to \"WARNING\" to treat negative readings as missing instead."
+        )
 
 
 # ---------------------------------------------------------------------------

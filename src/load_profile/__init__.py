@@ -1,6 +1,7 @@
 """Building Daily Load Profile Characterization Engine."""
 
 from .config import load_config
+from .config_schema import validate_config, ConfigValidationError
 from .data_ingestion import load_demand_data, validate_input, convert_units
 from .time_series import regularize, assess_quality
 from .baseline import estimate_baseline
@@ -14,6 +15,8 @@ from .pipeline import run_pipeline
 
 __all__ = [
     "load_config",
+    "validate_config",
+    "ConfigValidationError",
     "load_demand_data",
     "validate_input",
     "convert_units",
