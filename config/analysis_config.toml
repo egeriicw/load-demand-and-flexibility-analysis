@@ -157,6 +157,39 @@ high_variability_cv_threshold = 0.30
 # Multiple periods
 multi_period_min_count = 2
 
+# ---------------------------------------------------------------------------
+# DER Opportunity Analysis (multi-meter layer) — see spec/SPEC.md Part II
+# ---------------------------------------------------------------------------
+# No [[meters]] configured below by default; der.pipeline.run_der_pipeline()
+# is inert (no meters to loop over) until entries are added. The single-meter
+# pipeline above is unaffected either way.
+
+# [[meters]]
+# meter_id = "M1"
+# display_name = "Building A — Main Meter"
+# building_id = "B1"
+# source = "data/examples/meter_a.csv"
+#
+# [[meters]]
+# meter_id = "M2"
+# display_name = "Building A — Annex Meter"
+# building_id = "B1"
+# source = "data/examples/meter_b.csv"
+
+# [[meter_groups]]
+# name = "building_a"
+# meters = ["M1", "M2"]
+# child_groups = []
+
+[portfolio]
+# meter_ids excluded from the portfolio aggregate (portfolio = all [[meters]] minus these)
+excluded_meters = []
+
+[der.aggregation]
+# Minimum number of reporting meters required for an entity's summed demand to
+# be non-NaN at a given timestamp (pandas groupby sum(min_count=...) semantics).
+min_count = 1
+
 [output]
 # Paths for CSV exports (relative to notebook directory, or absolute)
 daily_features_csv     = "output/daily_features.csv"

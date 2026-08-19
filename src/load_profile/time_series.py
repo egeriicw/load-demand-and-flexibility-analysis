@@ -45,6 +45,9 @@ def regularize(
         ``is_interpolated``    – True for linearly interpolated values
         ``interpolation_method`` – "linear" | "none" | NaN
         ``is_missing``         – True where demand remains NaN after interpolation
+        ``data_quality_flag``  – "observed" | "interpolated" | "missing"
+                                  (derived from the three booleans above; DER-spec
+                                  canonical field, precedence observed > interpolated > missing)
     """
     max_gap_min = cfg.get("data_quality", {}).get("max_interpolation_gap_minutes", 60)
 
@@ -74,6 +77,11 @@ def regularize(
     df_reg["is_interpolated"] = interp_mask & ~is_observed
     df_reg["interpolation_method"] = np.where(df_reg["is_interpolated"], "linear", pd.NA)
     df_reg["is_missing"] = df_reg["demand_kw"].isna()
+    df_reg["data_quality_flag"] = np.select(
+        [df_reg["is_observed"], df_reg["is_interpolated"]],
+        ["observed", "interpolated"],
+        default="missing",
+    )
 
     # Preserve raw values for originally-observed points
     if "demand_kw_raw" not in df_reg.columns:

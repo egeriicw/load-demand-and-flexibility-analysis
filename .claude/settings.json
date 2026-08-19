@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(uv run *)"
+      "Bash(uv run *)",
+      "Bash(awk '{ print length }' /Users/egeriicw/Personal-Projects/load-demand-and-flexibility-analysis/src/load_profile/events.py)"
     ]
   }
 }

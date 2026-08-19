@@ -149,6 +149,77 @@ def _validate_weight_sums(cfg: dict[str, Any], report: ConfigValidationReport) -
             )
 
 
+def _validate_meters_section(cfg: dict[str, Any], report: ConfigValidationReport) -> None:
+    meters = cfg.get("meters", [])
+    if not meters:
+        _add(report, "WARNING", "meters", "no [[meters]] configured — DER multi-meter pipeline is inert")
+        return
+
+    seen: set[str] = set()
+    for i, m in enumerate(meters):
+        meter_id = m.get("meter_id")
+        if not meter_id:
+            _add(report, "ERROR", f"meters[{i}]", "missing required 'meter_id'")
+            continue
+        if meter_id in seen:
+            _add(report, "ERROR", f"meters[{i}].meter_id", f"duplicate meter_id '{meter_id}'")
+        seen.add(meter_id)
+
+
+def _validate_meter_groups_section(cfg: dict[str, Any], report: ConfigValidationReport) -> None:
+    known_meters = {m.get("meter_id") for m in cfg.get("meters", [])}
+    groups = cfg.get("meter_groups", [])
+    known_groups: set[str] = set()
+
+    for i, g in enumerate(groups):
+        name = g.get("name")
+        if not name:
+            _add(report, "ERROR", f"meter_groups[{i}]", "missing required 'name'")
+            continue
+        if name in known_groups:
+            _add(report, "ERROR", f"meter_groups[{i}].name", f"duplicate group name '{name}'")
+        known_groups.add(name)
+
+    for i, g in enumerate(groups):
+        name = g.get("name", f"<unnamed[{i}]>")
+        for meter_id in g.get("meters", []):
+            if meter_id not in known_meters:
+                _add(
+                    report, "ERROR", f"meter_groups[{i}].meters",
+                    f"group '{name}' references unknown meter_id '{meter_id}'",
+                )
+        for child in g.get("child_groups", []):
+            if child == name:
+                _add(
+                    report, "ERROR", f"meter_groups[{i}].child_groups",
+                    f"group '{name}' cannot list itself as a child_group",
+                )
+            elif child not in known_groups:
+                _add(
+                    report, "ERROR", f"meter_groups[{i}].child_groups",
+                    f"group '{name}' references unknown child_group '{child}'",
+                )
+
+    child_map = {g.get("name"): g.get("child_groups", []) for g in groups if g.get("name")}
+    cycle = _detect_meter_group_cycles(child_map)
+    if cycle:
+        _add(
+            report, "ERROR", "meter_groups",
+            f"cyclic child_groups reference: {' -> '.join(cycle)}",
+        )
+
+
+def _validate_portfolio_section(cfg: dict[str, Any], report: ConfigValidationReport) -> None:
+    known_meters = {m.get("meter_id") for m in cfg.get("meters", [])}
+    excluded = cfg.get("portfolio", {}).get("excluded_meters", [])
+    for meter_id in excluded:
+        if meter_id not in known_meters:
+            _add(
+                report, "ERROR", "portfolio.excluded_meters",
+                f"references unknown meter_id '{meter_id}'",
+            )
+
+
 def validate_config(cfg: dict[str, Any]) -> ConfigValidationReport:
     """
     Run structural validation over the full configuration dict.
@@ -164,5 +235,8 @@ def validate_config(cfg: dict[str, Any]) -> ConfigValidationReport:
     _validate_input_section(cfg, report)
     _validate_data_quality_section(cfg, report)
     _validate_weight_sums(cfg, report)
+    _validate_meters_section(cfg, report)
+    _validate_meter_groups_section(cfg, report)
+    _validate_portfolio_section(cfg, report)
 
     return report

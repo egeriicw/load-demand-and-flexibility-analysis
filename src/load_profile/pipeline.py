@@ -204,7 +204,10 @@ def _analyse_day(
     classification = classify_day(features, cfg)
 
     # Interval-level diagnostic table
-    iv_df = df_day[["demand_kw", "is_observed", "is_interpolated", "is_missing"]].copy()
+    iv_df = df_day[[
+        "demand_kw", "demand_kw_raw", "is_observed", "is_interpolated",
+        "is_missing", "data_quality_flag",
+    ]].copy()
     iv_df["analysis_demand_kw"] = series_smooth
     iv_df["normalized_demand"]  = norm
     iv_df["baseline_kw"]        = baseline.get("baseline_kw", np.nan)
