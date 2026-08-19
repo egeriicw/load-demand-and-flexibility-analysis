@@ -1601,3 +1601,59 @@ right after `validate_input()` and raises `ValueError` when severity dictates
 rejection. `time_series.regularize()`'s existing negative→NaN handling is unchanged —
 it still runs unconditionally for whichever severities don't abort first (see ADR 005
 for why that split is deliberate, not an oversight).
+
+## 53. Multi-Meter & Portfolio Model, Entity Aggregation (Phase 1)
+
+**STATUS: DECIDED**
+
+New subpackage `src/load_profile/der/` implements the multi-meter layer. It calls the
+unchanged single-meter `pipeline.run_pipeline()` once per configured meter and builds
+everything else on top of the results — see ADR 006.
+
+**Configuration** (`config/analysis_config.toml`, all empty/absent by default so the
+DER pipeline stays inert until populated):
+- `[[meters]]` — `meter_id` (required, unique), `display_name`, `building_id`,
+  `source` (path or in-memory DataFrame — anything `load_demand_data` already accepts).
+  Every meter shares the *same* `[input]` column-mapping; per-meter column overrides
+  are out of scope for now (see ADR 006 rationale).
+- `[[meter_groups]]` — `name` (required, unique), `meters` (direct member meter_ids),
+  `child_groups` (other group names, resolved recursively). Supports flat, hierarchical,
+  and overlapping membership (a meter or group may appear under multiple parents).
+- `[portfolio]` — `excluded_meters`; portfolio is always *all* `[[meters]]` minus this
+  list.
+- `[der.aggregation]` — `min_count` (default `1`): minimum number of reporting meters
+  required for an entity's summed demand to be non-NaN at a given timestamp.
+
+**Resolution** (`der/meters.py`):
+- `resolve_meter_groups(cfg) -> dict[str, list[str]]` — recursive, memoized, returns
+  each group's full deduplicated/sorted leaf meter_id set. Cycles are rejected both by
+  `config_schema.validate_config` (structural, before any data loads) and defensively
+  inside resolution itself if reached directly.
+- `resolve_portfolio(cfg) -> list[str]`.
+
+**Aggregation** (`der/aggregation.py`) — see ADR 007 for the full column-mapping
+rationale, summarized here:
+- `aggregate_entity(interval_df_multi, meter_ids, min_count=1) -> DataFrame` sums the
+  `demand_kw` column (the `regularize()`-output, quality-cascaded,
+  observed-else-interpolated-else-NaN value — **not** the smoothed
+  `analysis_demand_kw` column used for baseline/state detection) across the given
+  meters via `groupby(...).sum(min_count=...)`. **Never averages.** An all-non-reporting
+  timestamp for the given subset stays NaN, never a false 0.
+- `n_meters_reporting` — count of non-null contributing meters, attached alongside the
+  sum so partial coverage is never silently absorbed.
+- `build_entity_frame(entity_id, meter_ids, interval_df_multi, cfg)` wraps the above,
+  stamps `entity_id`, derives `is_missing`. Deliberately does not attempt aggregate-level
+  `is_observed`/`is_interpolated` flags — no well-defined cross-meter meaning.
+
+**Canonical fields** — `regularize()` gained an additive `data_quality_flag` column
+(`"observed"|"interpolated"|"missing"`); `run_pipeline()`'s returned `interval_df` now
+also surfaces `demand_kw_raw` alongside it (both already computed, previously not
+selected into the output). DER spec's `observed_demand_kw` maps onto `demand_kw_raw`;
+DER's `analysis_demand_kw` maps onto `demand_kw` (see ADR 007 — explicitly *not* onto
+the existing smoothed `analysis_demand_kw` column, despite the name match).
+
+**Orchestration** (`der/pipeline.py`): `run_der_pipeline(cfg) -> DERResult` loops
+`[[meters]]`, runs `run_pipeline()` per meter unchanged, tags each meter's `interval_df`
+with `meter_id`, concatenates, then builds an aggregated entity frame for every resolved
+group and the portfolio. `DERResult` holds per-meter tables, per-entity frames, the
+resolved entity→meter_ids mapping, and the tagged multi-meter interval table.

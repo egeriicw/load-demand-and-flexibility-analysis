@@ -12,6 +12,47 @@ Format:
 
 ---
 
+## 2026-08-19 — DER Opportunity Analysis integration, Phase 1: multi-meter/portfolio model + entity aggregation
+
+- New section: Multi-Meter & Portfolio Model, Entity Aggregation (SPEC.md Part II).
+- New subpackage `src/load_profile/der/` — multi-meter DER layer, built on top of the
+  unchanged single-meter `pipeline.run_pipeline` (see ADR 006).
+- `src/load_profile/der/meters.py` (new): `MeterSpec`, `build_meter_specs()`,
+  `resolve_meter_groups()` (recursive, memoized, flat/hierarchical/overlapping, cycle
+  detection via Phase 0's `_detect_meter_group_cycles`), `resolve_portfolio()`
+  (all meters minus `[portfolio].excluded_meters`).
+- `src/load_profile/der/aggregation.py` (new): `aggregate_entity()` — SUM (never
+  average) across meters via `groupby(...).sum(min_count=...)`, `n_meters_reporting`
+  count column, NaN-preserving for all-missing groups. `build_entity_frame()` wraps it
+  with `entity_id`/`is_missing`. See ADR 007 for the corrected `demand_kw` (not the
+  smoothed `analysis_demand_kw`) column mapping this aggregates.
+- `src/load_profile/der/pipeline.py` (new): `run_der_pipeline(cfg)` — loops
+  `[[meters]]`, calls `pipeline.run_pipeline()` once per meter unchanged, tags/concats
+  interval tables with `meter_id`, builds an aggregated entity frame per resolved
+  group and the portfolio. Returns `DERResult`.
+- `src/load_profile/time_series.py`: `regularize()` gained an additive
+  `data_quality_flag` column (`"observed"|"interpolated"|"missing"`, `np.select` over
+  existing booleans) — DER spec canonical field, no existing column changed.
+- `src/load_profile/pipeline.py`: `_analyse_day()`'s returned `interval_df` now also
+  carries `demand_kw_raw` and `data_quality_flag` (both already computed by
+  `regularize()`, previously not selected into the output).
+- `config/analysis_config.toml`: new `[[meters]]`/`[[meter_groups]]` example blocks
+  (commented, empty by default — DER pipeline inert until populated), new `[portfolio]`
+  (`excluded_meters`), new `[der.aggregation]` (`min_count = 1`).
+- `src/load_profile/config_schema.py`: added `_validate_meters_section` (unique
+  meter_id; empty array = WARNING not ERROR per spec), `_validate_meter_groups_section`
+  (known references, no self-reference, cycle detection), `_validate_portfolio_section`
+  (excluded meter_ids must exist).
+- Tests: `tests/der/conftest.py`, `tests/der/test_meters.py`,
+  `tests/der/test_aggregation.py` (explicit sum-not-average + NaN-preservation +
+  min_count invariant tests), `tests/der/test_der_pipeline.py`.
+- ADR created: adr/006-multi-meter-portfolio-model.md
+- ADR created: adr/007-entity-aggregation-semantics.md
+- Phase 2 of the DER integration (calendar features, time-of-day segments, external
+  temperature) follows next.
+
+---
+
 ## 2026-08-19 — DER Opportunity Analysis integration, Phase 0: config schema validation + negative-demand severity
 
 - New section: Configuration Validation (structural, runs before any data load).
