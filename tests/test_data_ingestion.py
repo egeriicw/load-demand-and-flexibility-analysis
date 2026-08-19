@@ -148,12 +148,24 @@ class TestValidateInput:
         assert report["duplicate_timestamp_count"] == 1
         assert any("duplicate" in i for i in report["issues"])
 
-    def test_negative_demand_flagged(self, cfg):
+    def test_negative_demand_flagged_as_error_by_default(self, cfg):
+        # Default data_quality.negative_demand_severity is "ERROR": negative
+        # demand is unsupported by design and rejected.
+        idx = pd.date_range("2024-01-15", periods=5, freq="15min", tz="UTC")
+        df = pd.DataFrame({"demand_kw": [-1.0, 2.0, 3.0, 4.0, 5.0]}, index=idx)
+        report = validate_input(df, cfg)
+        assert report["negative_demand_count"] == 1
+        assert any("negative" in i for i in report["issues"])
+        assert report["warnings"] == []
+
+    def test_negative_demand_flagged_as_warning_when_downgraded(self, cfg):
+        cfg["data_quality"]["negative_demand_severity"] = "WARNING"
         idx = pd.date_range("2024-01-15", periods=5, freq="15min", tz="UTC")
         df = pd.DataFrame({"demand_kw": [-1.0, 2.0, 3.0, 4.0, 5.0]}, index=idx)
         report = validate_input(df, cfg)
         assert report["negative_demand_count"] == 1
         assert any("negative" in w for w in report["warnings"])
+        assert report["issues"] == []
 
     def test_zero_demand_counted(self, cfg):
         idx = pd.date_range("2024-01-15", periods=5, freq="15min", tz="UTC")

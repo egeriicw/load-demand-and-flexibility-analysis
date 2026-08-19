@@ -53,6 +53,25 @@ class TestRunPipelineStructure:
         assert "date" in result["peak_df"].columns
 
 
+class TestPipelineNegativeDemandSeverity:
+    def test_negative_demand_rejected_by_default(self, cfg):
+        df_raw, _ = generate_synthetic_day("classic_morning_startup")
+        df_raw = df_raw.reset_index()
+        df_raw.loc[0, "demand_kw"] = -1.0
+        df = load_demand_data(df_raw, cfg)
+        with pytest.raises(ValueError, match="negative demand"):
+            run_pipeline(df, cfg, verbose=False)
+
+    def test_negative_demand_allowed_when_downgraded_to_warning(self, cfg):
+        cfg["data_quality"]["negative_demand_severity"] = "WARNING"
+        df_raw, _ = generate_synthetic_day("classic_morning_startup")
+        df_raw = df_raw.reset_index()
+        df_raw.loc[0, "demand_kw"] = -1.0
+        df = load_demand_data(df_raw, cfg)
+        result = run_pipeline(df, cfg, verbose=False)
+        assert len(result["daily_df"]) == 1
+
+
 class TestPipelineKWhConversion:
     def test_kwh_input_produces_higher_kw_values(self, cfg):
         df_raw, _ = generate_synthetic_day("flat_continuous")
