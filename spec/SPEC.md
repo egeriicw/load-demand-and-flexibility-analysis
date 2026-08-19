@@ -1787,3 +1787,48 @@ classification modules — K-means in particular is not cheap enough to run
 unconditionally for every entity on every pipeline invocation. `patterns.py`
 deliberately has no import dependency on `load_shape.py`, composing with whatever
 shape-labeling source a caller supplies instead.
+
+## 57. Meter Coincidence Analysis (Phase 5)
+
+**STATUS: DECIDED**
+
+**Coincidence factor** (`der/coincidence.py`, DER spec §5.9/§22 — statistical association,
+not causal): `CF = coincident_group_peak_kw / sum_of_individual_meter_peaks_kw`.
+CF = 1.0 means all meters peak simultaneously; CF approaching 0 means complete temporal
+diversity. Both a study-period CF (one scalar over all available data) and a per-day CF
+(one row per calendar date) are computed — never just one. All computed quantities are
+reported as association metrics; no physical causation is implied.
+
+**`compute_coincidence_factor(interval_df_multi, meter_ids, cfg, value_col="demand_kw")`**:
+- Pivots `interval_df_multi` to a `(datetime × meter_id)` matrix for the specified meters.
+- `group_demand` = `DataFrame.sum(axis=1, min_count=1)` — NaN only when all meters are
+  NaN at a timestamp, consistent with Phase 1 aggregation semantics.
+- `group_peak_kw` = max of `group_demand`; `coincident_peak_timestamp` = its argmax.
+- `meter_peak_kw` = per-meter maximum over the study period.
+- `sum_of_individual_peaks_kw` = sum of `meter_peak_kw` values.
+- `CF = group_peak_kw / sum_of_individual_peaks_kw`.
+- Returns `CoincidenceResult(success=False)` when fewer than `min_meters` meters are
+  available or group demand is entirely NaN. CF > 1.0 is possible with uneven meter
+  coverage (see ADR 015 edge-case note); callers should inspect `n_meters_reporting`.
+
+**`compute_daily_coincidence(interval_df_multi, meter_ids, cfg, value_col="demand_kw")`**:
+- Same pivot/sum/argmax logic applied per calendar date (groupby normalized date index).
+- Dates where group demand is entirely NaN are **skipped** (not emitted as NaN rows).
+- Columns: `date`, `coincidence_factor`, `group_peak_kw`, `sum_of_individual_peaks_kw`,
+  `coincident_peak_timestamp`, `n_meters_reporting` (count of meters with ≥ 1 non-NaN
+  value for that day — partial-coverage days are surfaced, not silently absorbed).
+- Returns an empty DataFrame (same schema) when fewer than `min_meters` meters exist.
+
+**`CoincidenceResult`** dataclass: `success`, `coincidence_factor`,
+`group_peak_kw`, `sum_of_individual_peaks_kw`, `coincident_peak_timestamp`,
+`n_meters`, `meter_peak_kw`.
+
+**Configuration** (`[der.coincidence]`):
+- `min_meters = 2` (default) — minimum meters to compute a CF. A single meter trivially
+  has CF = 1.0; `min_meters = 1` enables it for completeness but produces a
+  definitionally uninteresting result.
+
+**Not wired into `run_der_pipeline`** — standalone, caller-driven (same design as Phase 3
+and Phase 4 modules). Coincidence can be expensive for large portfolios and the caller
+controls which entity/group pairs to evaluate.
+- ADR created: adr/015-coincidence-factor.md

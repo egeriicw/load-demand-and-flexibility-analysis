@@ -266,6 +266,12 @@ min_occurrences = 3
 outlier_z_threshold = 2.5
 min_days_for_outliers = 5
 
+[der.coincidence]
+# Minimum number of meters required to compute a coincidence factor.
+# A single meter trivially has CF = 1.0; set min_meters = 1 only if you
+# explicitly want that degenerate case.
+min_meters = 2
+
 [output]
 # Paths for CSV exports (relative to notebook directory, or absolute)
 daily_features_csv     = "output/daily_features.csv"

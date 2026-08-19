@@ -12,6 +12,30 @@ Format:
 
 ---
 
+## 2026-08-19 — DER Opportunity Analysis integration, Phase 5: meter coincidence analysis
+
+- New section: Meter Coincidence Analysis (SPEC.md §57).
+- `src/load_profile/der/coincidence.py` (new): `compute_coincidence_factor()` —
+  study-period CF (`group_peak_kw / sum_of_individual_peaks_kw`), `coincident_peak_timestamp`,
+  `meter_peak_kw` per meter. `compute_daily_coincidence()` — same logic per calendar date,
+  reports `n_meters_reporting` per day (partial coverage surfaced, not hidden), skips
+  entirely-NaN days rather than emitting NaN rows. `CoincidenceResult` dataclass.
+  No import dependency on any other `der/` module — operates directly on
+  `DERResult.interval_df_multi`.
+- `config/analysis_config.toml`: new `[der.coincidence]` (`min_meters = 2`).
+- Group-demand computed via `DataFrame.sum(axis=1, min_count=1)` — consistent with
+  Phase 1 aggregation semantics. CF > 1.0 is possible (but rare) under uneven meter
+  coverage; documented in ADR 015 rather than silently clamped.
+- Not wired into `run_der_pipeline` — standalone, caller-driven (same design as Phase
+  3 and Phase 4 modules).
+- Tests: `tests/der/test_coincidence.py` (perfect coincidence CF=1.0, staggered peaks
+  CF<1.0, three-meter partial coincidence, per-day granularity, all-NaN day skipping,
+  `n_meters_reporting` correctness, `min_meters` guard, unknown meter_id degradation).
+- ADR created: adr/015-coincidence-factor.md
+- Phase 6 of the DER integration (DER output layout) follows next.
+
+---
+
 ## 2026-08-19 — DER Opportunity Analysis integration, Phase 4: K-means clustering, pattern discovery
 
 - New section: Clustering & Pattern Discovery (SPEC.md Part II).

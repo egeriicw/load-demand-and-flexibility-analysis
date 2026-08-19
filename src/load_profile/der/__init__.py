@@ -32,6 +32,7 @@ from .patterns import (
     find_recurring_peak_timing,
     find_recurring_shape,
 )
+from .coincidence import CoincidenceResult, compute_coincidence_factor, compute_daily_coincidence
 from .pipeline import DERResult, run_der_pipeline
 
 __all__ = [
@@ -68,6 +69,9 @@ __all__ = [
     "find_outlier_days",
     "find_recurring_peak_timing",
     "find_recurring_shape",
+    "CoincidenceResult",
+    "compute_coincidence_factor",
+    "compute_daily_coincidence",
     "DERResult",
     "run_der_pipeline",
 ]
