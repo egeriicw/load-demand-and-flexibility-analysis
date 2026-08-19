@@ -1546,3 +1546,58 @@ spec/
   README.md
   adr/
 ```
+
+---
+
+## Part II — DER Opportunity Analysis Integration
+
+A separate functional spec ("Load Pattern, Flexibility, and DER Opportunity Analysis
+Engine") is being integrated into this codebase, adding multi-meter/portfolio
+analysis, temperature-driven change-point regression, K-means clustering, pattern
+discovery, and meter coincidence analysis on top of the single-meter engine described
+in Part I above. Integration proceeds in phases (0-6); this part of SPEC.md grows one
+section per phase as it lands. See `spec/CHANGELOG.md` for the phase-by-phase log and
+`spec/adr/004+` for the individual decisions.
+
+Architecturally: the existing single-meter `run_pipeline()` is unchanged and reused —
+a new `src/load_profile/der/` subpackage calls it once per configured meter and builds
+all DER-layer capability (aggregation, enrichment, classification, clustering,
+coincidence, output) on top of its `interval_df`/`daily_df` results. Nothing under
+`der/` is imported by the root package; the dependency direction is one-way.
+
+## 52. Configuration Validation (Phase 0)
+
+**STATUS: DECIDED**
+
+Config loading now runs structural validation before any data is loaded:
+
+- `config_schema.validate_config(cfg) -> ConfigValidationReport` — a list of
+  `ConfigIssue(severity, path, message)` findings, severity one of `INFO` / `WARNING`
+  / `ERROR`. Purely structural: it never opens the data file.
+- `load_config(path=None, validate=True)` calls `validate_config()` and raises
+  `ConfigValidationError` if any `ERROR`-severity issue is found. Callers that need the
+  raw dict regardless (e.g. tests exercising a deliberately malformed file) pass
+  `validate=False`.
+- Validation coverage today: `[input].unit`, `[data_quality].max_interpolation_gap_minutes`,
+  `[data_quality].min_completeness_fraction`, `[data_quality].negative_demand_severity`,
+  and a `WARNING`-level check that `[start_detection]`/`[end_detection]` scoring
+  weights sum to ~1.0. Each later integration phase adds its own section's validator
+  (e.g. `[[meters]]`/`[[meter_groups]]`/`[portfolio]` in Phase 1) rather than one
+  monolithic function.
+- Cycle detection for `[[meter_groups]]` (needed starting Phase 1) is implemented now
+  as a standalone, TOML-key-agnostic DFS helper:
+  `config_schema._detect_meter_group_cycles(group_children: dict[str, list[str]]) ->
+  list[str]` — returns the group names forming the first cycle found, or `[]`.
+
+### Configurable negative-demand severity
+
+`data_quality.negative_demand_severity`, one of `INFO`/`WARNING`/`ERROR`, default
+`ERROR`: negative demand is unsupported
+by design and rejected by default, per the DER spec. `validate_input()` stays
+report-only (never raises) — it routes the finding into `report["issues"]` (`ERROR`),
+`report["warnings"]` (`WARNING`), or emits nothing beyond the count (`INFO`). The new
+`check_validation_report(report, cfg)` is the actual gate: `run_pipeline()` calls it
+right after `validate_input()` and raises `ValueError` when severity dictates
+rejection. `time_series.regularize()`'s existing negative→NaN handling is unchanged —
+it still runs unconditionally for whichever severities don't abort first (see ADR 005
+for why that split is deliberate, not an oversight).

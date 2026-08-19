@@ -12,6 +12,37 @@ Format:
 
 ---
 
+## 2026-08-19 — DER Opportunity Analysis integration, Phase 0: config schema validation + negative-demand severity
+
+- New section: Configuration Validation (structural, runs before any data load).
+- `src/load_profile/config_schema.py` (new): `validate_config()`, `ConfigValidationReport`,
+  `ConfigIssue`, `ConfigValidationError`, `_detect_meter_group_cycles()` (DFS cycle
+  detector, algorithm added now for reuse by Phase 1's `[[meter_groups]]`).
+- `src/load_profile/config.py`: `load_config(path=None, validate=True)` now validates by
+  default and raises `ConfigValidationError` on any `ERROR`-severity finding.
+- `config/analysis_config.toml [data_quality]`: added `negative_demand_severity`
+  (`"INFO"|"WARNING"|"ERROR"`, default `"ERROR"`) — behavior change, see ADR 005.
+- `src/load_profile/data_ingestion.py`: `validate_input()` routes negative-demand
+  findings into `issues` (ERROR) vs `warnings` (WARNING) vs silent-count (INFO) based on
+  the new severity key. New `check_validation_report(report, cfg)` raises `ValueError`
+  when the configured severity dictates rejection; `validate_input()` itself remains
+  non-raising.
+- `src/load_profile/pipeline.py`: `run_pipeline()` calls `check_validation_report()`
+  immediately after `validate_input()`.
+- `tests/test_data_ingestion.py`: updated negative-demand test to assert the new default
+  `ERROR`/issues behavior; added a companion test for the `WARNING` downgrade path.
+- `tests/test_pipeline.py`: added `TestPipelineNegativeDemandSeverity` (default-rejects,
+  downgrade-allows).
+- `tests/test_config_schema.py` (new): schema validation + cycle-detector coverage.
+- ADR created: adr/004-config-schema-validation.md
+- ADR created: adr/005-negative-demand-severity.md
+- This is Phase 0 of a multi-phase DER Opportunity Analysis integration (see plan);
+  Phases 1-6 (multi-meter/portfolio model, calendar/temperature features, change-point
+  regression, classification families, clustering, pattern discovery, coincidence
+  analysis, DER output layout) follow in subsequent changes.
+
+---
+
 ## 2026-08-18 — Added kWh input support (unit conversion)
 
 - Section 5 (new): Unit Conversion added to architecture between input validation and regularization.
